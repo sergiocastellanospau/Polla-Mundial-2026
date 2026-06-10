@@ -553,26 +553,36 @@ const KO=[
 const KO_LBL={R32:"Ronda de 32",R16:"Octavos de final",QF:"Cuartos de final",SF:"Semifinales","3P":"3er y 4to lugar",FIN:"Gran Final"};
 
 const DEFAULT_PLAYERS=[
-{name:"Eduardo Peñuela",paid:true},{name:"Junior Hurtado",paid:true},
-{name:"Alvaro Arias",paid:false},{name:"Andres Perilla",paid:true},
-{name:"Cesar Tara",paid:true},{name:"César Giraldo",paid:false},
-{name:"Cesar Nava",paid:true},{name:"Daniel Chaffardet",paid:true},
-{name:"Javier Calderon",paid:false},{name:"Javier Rodriguez",paid:true},
-{name:"Jhonatan Agudelo",paid:true},{name:"Mateo Galvis",paid:true},
-{name:"Milton Molina",paid:false},{name:"Nacho Carrera",paid:true},
-{name:"Ronny Sanchez",paid:true},{name:"Samuel Rodríguez",paid:true},
-{name:"Omar Oro",paid:true},{name:"Mario Bernal",paid:false},
-{name:"Daniel Rigo",paid:true},{name:"Eduardo Hernández",paid:true},
-{name:"Edwin Rodríguez",paid:true},{name:"Jorge Rodríguez",paid:true},
-{name:"Sergio Castellanos",paid:true}
+{name:"Alvaro Arias",paid:false},
+{name:"Andres Perilla",paid:false},
+{name:"Cesar Andres Tara",paid:false},
+{name:"Daniel Trejo",paid:false},
+{name:"Eduardo Peñuela",paid:false},
+{name:"Edwin Rodríguez",paid:false},
+{name:"Junior Hurtado",paid:false},
+{name:"Nacho Carrera",paid:false},
+{name:"Samuel Peñuela",paid:false},
+{name:"Sergio Castellanos",paid:false}
 ];
 
-let S={players:[...DEFAULT_PLAYERS.map(p=>({...p}))],real:{},pred:{},ko:{},deadline:"2026-06-07",cuota:100,adminPin:"2026",adminName:"Sergio Castellanos",currency:{code:"USD",symbol:"$",locale:"en-US"},pendingRequests:[]};
+let S={players:[...DEFAULT_PLAYERS.map(p=>({...p}))],real:{},pred:{},ko:{},deadline:"2026-06-10",cuota:100,adminPin:"2026",adminName:"Sergio Castellanos",currency:{code:"USD",symbol:"$",locale:"en-US"},pendingRequests:[]};
 let isAdmin=false;
 
 function save(){try{localStorage.setItem("pm26v4",JSON.stringify(S));}catch(e){}}
-function load(){try{const d=localStorage.getItem("pm26v4");if(d)S=Object.assign(S,JSON.parse(d));}catch(e){}}
+function load(){
+  try{
+    const d=localStorage.getItem("pm26v4");
+    if(d){
+      const saved=JSON.parse(d);
+      // If saved data has players, use them; otherwise keep DEFAULT_PLAYERS
+      S=Object.assign(S,saved);
+    }
+  }catch(e){}
+}
 load();
+
+// If this is opened fresh (no saved data at all), nothing to do.
+// User must do Admin > Resetear todo to clear old localStorage data.
 
 // SCORING — Grupos: 3=resultado,5=exacto | KO: 3/5 normal + 7=empate+ganadorPen / 10=exacto+ganadorPen
 function calcPts(rh,ra,ph,pa,isKO,rPenW,pPenW){
@@ -1207,8 +1217,38 @@ function applyPreds(data){
 // ══════════════════════════════════════════════
 function rInfo(){
   const bote=S.players.length*S.cuota;
+  // Detect if localStorage has stale data vs DEFAULT_PLAYERS
+  const savedRaw=localStorage.getItem("pm26v4");
+  const hasSaved=!!savedRaw;
+  const savedPlayers=hasSaved?JSON.parse(savedRaw).players||[]:[];
+  const isStale=hasSaved&&savedPlayers.length!==DEFAULT_PLAYERS.length;
   document.getElementById("p-info").innerHTML=`
-  <div class="prizes-grid">
+
+  ${isStale?`<div style="background:var(--amber-bg);border:1px solid var(--amber-border);border-radius:var(--r);padding:12px 14px;margin-bottom:14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+    <div style="flex:1;min-width:0">
+      <div style="font-size:13px;font-weight:700;color:var(--amber-text)">⚠️ Hay datos guardados de una versión anterior</div>
+      <div style="font-size:11px;color:var(--amber-text);margin-top:2px">La app tiene ${savedPlayers.length} jugadores guardados pero la lista oficial tiene ${DEFAULT_PLAYERS.length}. Toca el botón para actualizar.</div>
+    </div>
+    <button onclick="hardReset()" class="btn btn-gold btn-sm">Actualizar lista ✓</button>
+  </div>`:''}
+
+  <!-- HERO BOTE -->
+  <div class="hero" style="margin-bottom:16px">
+    <div class="hero-ey">FIFA World Cup 2026 · USA · Canadá · México</div>
+    <div class="hero-t">POLLA MUNDIAL 2026</div>
+    <div class="hero-s">11 de junio – 19 de julio · 48 equipos · 104 partidos</div>
+    <div class="hero-stats">
+      <div class="hs"><div class="hs-v">${S.players.length}</div><div class="hs-l">Jugadores</div></div>
+      <div class="hs"><div class="hs-v">${fmtMoney(bote)}</div><div class="hs-l">Bote</div></div>
+      <div class="hs"><div class="hs-v">${fmtMoney(S.cuota)}</div><div class="hs-l">Cuota</div></div>
+      <div class="hs"><div class="hs-v">${S.currency?.code||"USD"}</div><div class="hs-l">Moneda</div></div>
+    </div>
+    <div class="hero-dead">👤 Organizador: <strong>${S.adminName||"Administrador"}</strong></div>
+  </div>
+
+  <!-- PREMIOS -->
+  <div class="sec-title" style="margin-bottom:10px">🏆 Premios</div>
+  <div class="prizes-grid" style="margin-bottom:10px">
     <div class="prize-card">
       <div class="pz-emoji">🥇</div>
       <div class="pz-place">1er Lugar · 75%</div>
@@ -1231,42 +1271,182 @@ function rInfo(){
       <div class="pz-emoji">💵</div>
       <div class="pz-place">Cuota / jugador</div>
       <div class="pz-amount">${fmtMoney(S.cuota)}</div>
-      <div style="font-size:10px;color:rgba(240,200,102,.45);margin-top:4px">USD por persona</div>
+      <div style="font-size:10px;color:rgba(240,200,102,.45);margin-top:4px">por persona</div>
     </div>
   </div>
-  <div class="card" style="margin-bottom:14px;background:var(--navy);border-color:var(--navy2)">
-    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
-      <div>
-        <div style="font-size:11px;color:rgba(240,200,102,.55);letter-spacing:.04em">BOTE TOTAL · ${S.players.length} jugadores</div>
-        <div style="font-family:var(--fd);font-size:36px;color:var(--gold2);letter-spacing:.02em;line-height:1.1">${fmtMoney(bote)} <span style="font-size:14px;opacity:.6">${S.currency?.code||"USD"}</span></div>
-        <div style="font-size:11px;color:rgba(240,200,102,.4);margin-top:3px">Cuota: ${fmtMoney(S.cuota)} por persona</div>
+  <div style="font-size:11px;color:var(--muted);margin-bottom:20px;text-align:center">
+    Los premios aumentan si se unen más jugadores — el bote crece con cada inscripción
+  </div>
+
+  <!-- INSCRIPCIÓN -->
+  <div class="sec-title" style="margin-bottom:10px">📋 Inscripción</div>
+  <div class="card" style="margin-bottom:16px">
+    <div style="display:flex;flex-direction:column;gap:10px;font-size:13px;line-height:1.65">
+      <div style="display:flex;gap:10px;align-items:flex-start">
+        <span style="font-size:18px;flex-shrink:0">💳</span>
+        <div><strong>Cuota:</strong> ${fmtMoney(S.cuota)} ${S.currency?.code||"USD"} por persona, pagada al organizador antes de la fecha límite.</div>
       </div>
-      <div style="text-align:right">
-        <div style="font-size:10px;color:rgba(240,200,102,.45);letter-spacing:.04em;margin-bottom:4px">PREMIOS</div>
-        <div style="font-size:13px;font-weight:600;color:rgba(240,200,102,.7);line-height:1.8">🥇 75% &nbsp;·&nbsp; 🥈 15% &nbsp;·&nbsp; 🥉 8% del bote</div>
+      <div style="display:flex;gap:10px;align-items:flex-start">
+        <span style="font-size:18px;flex-shrink:0">📅</span>
+        <div><strong>Fecha límite:</strong> <span style="color:var(--red-text);font-weight:700">${fmtDate(S.deadline)}</span> — 4 días antes del inicio del Mundial. Después de esa fecha no se aceptan nuevos participantes.</div>
+      </div>
+      <div style="display:flex;gap:10px;align-items:flex-start">
+        <span style="font-size:18px;flex-shrink:0">✅</span>
+        <div><strong>Confirmación:</strong> Solo el administrador puede inscribir jugadores. Tu lugar queda reservado una vez que el organizador confirme tu pago.</div>
       </div>
     </div>
   </div>
-  <div class="sec-title" style="margin-bottom:10px">Puntuación</div>
-  <table class="rules-tbl" style="margin-bottom:16px">
-    <thead><tr><th>Situación</th><th>Pts</th></tr></thead>
+
+  <!-- PRONÓSTICOS -->
+  <div class="sec-title" style="margin-bottom:10px">✏️ Pronósticos</div>
+  <div class="card" style="margin-bottom:16px">
+    <div style="display:flex;flex-direction:column;gap:10px;font-size:13px;line-height:1.65">
+      <div style="display:flex;gap:10px;align-items:flex-start">
+        <span style="font-size:18px;flex-shrink:0">📄</span>
+        <div><strong>Planilla por partido:</strong> Antes de cada partido, el admin genera y comparte una planilla. Cada jugador escribe el marcador que cree que va a ser el resultado final.</div>
+      </div>
+      <div style="display:flex;gap:10px;align-items:flex-start">
+        <span style="font-size:18px;flex-shrink:0">⏱️</span>
+        <div><strong>Plazo:</strong> Los pronósticos deben enviarse al administrador <strong style="color:var(--red-text)">máximo una hora antes</strong> del inicio del partido. No se aceptan después del pitazo inicial.</div>
+      </div>
+      <div style="display:flex;gap:10px;align-items:flex-start">
+        <span style="font-size:18px;flex-shrink:0">🔒</span>
+        <div><strong>Inmutables:</strong> Una vez que el admin carga los pronósticos, <strong>no se pueden cambiar</strong>. El administrador es el único que ingresa datos — esto garantiza que nadie altere resultados pasados.</div>
+      </div>
+      <div style="display:flex;gap:10px;align-items:flex-start">
+        <span style="font-size:18px;flex-shrink:0">⚠️</span>
+        <div><strong>Sin pronóstico:</strong> Si no envías tu predicción a tiempo, ese partido queda en <strong>0 puntos</strong> para ti. No hay recuperación.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PUNTUACIÓN GRUPOS -->
+  <div class="sec-title" style="margin-bottom:10px">⚽ Puntuación — Fase de grupos</div>
+  <div style="font-size:12px;color:var(--muted);margin-bottom:8px">Partidos #1 al #72 · Grupos A hasta L · Sin penales</div>
+  <table class="rules-tbl" style="margin-bottom:6px">
+    <thead><tr><th>Logro</th><th style="width:60px;text-align:center">Puntos</th></tr></thead>
     <tbody>
-      <tr><td>Acertar resultado (ganador o empate) — Grupos</td><td><span class="ptag pt-3">3p</span></td></tr>
-      <tr><td>Marcador exacto — Grupos</td><td><span class="ptag pt-5">5p</span></td></tr>
-      <tr><td>Empate + acertar ganador en penales — KO (R32, R16, QF, SF, Final)</td><td><span class="ptag pt-7">7p</span></td></tr>
-      <tr><td>Marcador exacto de 90' + ganador en penales — KO</td><td><span class="ptag pt-10">10p</span></td></tr>
+      <tr>
+        <td>
+          <strong>Resultado correcto</strong><br>
+          <span style="font-size:11px;color:var(--muted)">Acertas quién gana o que hay empate, aunque el marcador sea diferente</span>
+        </td>
+        <td style="text-align:center"><span class="ptag pt-3" style="font-size:11px;padding:3px 8px">3 pts</span></td>
+      </tr>
+      <tr>
+        <td>
+          <strong>Marcador exacto</strong><br>
+          <span style="font-size:11px;color:var(--muted)">El marcador que predijiste coincide exactamente con el resultado final</span>
+        </td>
+        <td style="text-align:center"><span class="ptag pt-5" style="font-size:11px;padding:3px 8px">5 pts</span></td>
+      </tr>
+      <tr style="background:var(--red-bg)">
+        <td>
+          <strong style="color:var(--red-text)">Resultado incorrecto</strong><br>
+          <span style="font-size:11px;color:var(--muted)">Predijiste ganador diferente al real</span>
+        </td>
+        <td style="text-align:center"><span class="ptag pt-0" style="font-size:11px;padding:3px 8px">0 pts</span></td>
+      </tr>
     </tbody>
   </table>
-  <div class="sec-title" style="margin-bottom:10px">Cómo funciona</div>
+  <div style="font-size:11px;color:var(--muted);margin-bottom:20px;padding:8px 12px;background:var(--blue-bg);border-radius:var(--r-sm);border:1px solid var(--blue-border)">
+    💡 <strong>Ejemplo grupos:</strong> Argentina gana 2-1. Si predijiste 2-1 → <span class="ptag pt-5">5p</span>. Si predijiste 1-0 (Argentina gana pero diferente marcador) → <span class="ptag pt-3">3p</span>. Si predijiste empate o victoria de otro → <span class="ptag pt-0">0p</span>
+  </div>
+
+  <!-- PUNTUACIÓN KO -->
+  <div class="sec-title" style="margin-bottom:10px">🔗 Puntuación — Fase eliminatoria</div>
+  <div style="font-size:12px;color:var(--muted);margin-bottom:8px">Partidos #73 al #104 · Ronda de 32, Octavos, Cuartos, Semis, Final · Los empates van a penales</div>
+  <table class="rules-tbl" style="margin-bottom:6px">
+    <thead><tr><th>Logro</th><th style="width:60px;text-align:center">Puntos</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>
+          <strong>Resultado correcto en 90 minutos</strong><br>
+          <span style="font-size:11px;color:var(--muted)">Acertas quién gana en los 90' (no aplica si hay empate)</span>
+        </td>
+        <td style="text-align:center"><span class="ptag pt-3" style="font-size:11px;padding:3px 8px">3 pts</span></td>
+      </tr>
+      <tr>
+        <td>
+          <strong>Marcador exacto en 90 minutos</strong><br>
+          <span style="font-size:11px;color:var(--muted)">El marcador coincide exactamente al final del tiempo reglamentario</span>
+        </td>
+        <td style="text-align:center"><span class="ptag pt-5" style="font-size:11px;padding:3px 8px">5 pts</span></td>
+      </tr>
+      <tr>
+        <td>
+          <strong>Empate en 90' + aciertas el ganador en penales</strong><br>
+          <span style="font-size:11px;color:var(--muted)">Predijiste empate y además sabías qué equipo ganaría la tanda</span>
+        </td>
+        <td style="text-align:center"><span class="ptag pt-7" style="font-size:11px;padding:3px 8px">7 pts</span></td>
+      </tr>
+      <tr>
+        <td>
+          <strong>Marcador exacto en 90' + ganador en penales</strong><br>
+          <span style="font-size:11px;color:var(--muted)">El marcador de empate era exacto y además acertaste quién ganó los penales</span>
+        </td>
+        <td style="text-align:center"><span class="ptag pt-10" style="font-size:11px;padding:3px 8px">10 pts</span></td>
+      </tr>
+    </tbody>
+  </table>
+  <div style="font-size:11px;color:var(--muted);margin-bottom:20px;padding:8px 12px;background:var(--amber-bg);border-radius:var(--r-sm);border:1px solid var(--amber-border);color:var(--amber-text)">
+    🏅 <strong>Ejemplo eliminatoria:</strong> Francia vs Argentina, empate 1-1 en 90', Argentina gana en penales. Si predijiste 1-1 + Argentina → <span class="ptag pt-10">10p</span>. Si predijiste 0-0 + Argentina → <span class="ptag pt-7">7p</span>. Si predijiste 2-0 Francia → <span class="ptag pt-0">0p</span>
+  </div>
+
+  <!-- CALENDARIO CLAVE -->
+  <div class="sec-title" style="margin-bottom:10px">📅 Calendario clave</div>
+  <div class="card" style="margin-bottom:16px">
+    <div style="display:flex;flex-direction:column;gap:0">
+      ${[
+        {e:"⚽",d:"11 junio",t:"Primer partido",s:"México vs Sudáfrica · 15:00 EST · Estadio Azteca",hi:true},
+        {e:"📋",d:"7 junio",t:"Cierre de inscripciones",s:"Último día para unirse a la polla",hi:false},
+        {e:"🗓",d:"27 junio",t:"Último partido de grupos",s:"Cierre de la fase de grupos",hi:false},
+        {e:"🔗",d:"28 jun – 3 jul",t:"Ronda de 32",s:"Inicia la fase eliminatoria · Penales desde aquí",hi:false},
+        {e:"⚔️",d:"4 – 7 julio",t:"Octavos de final",s:"Los 16 mejores se enfrentan",hi:false},
+        {e:"🏟️",d:"9 – 11 julio",t:"Cuartos de final",s:"Los 8 mejores",hi:false},
+        {e:"🌟",d:"14 – 15 julio",t:"Semifinales",s:"Los 4 mejores del mundo",hi:false},
+        {e:"🥉",d:"18 julio",t:"3er y 4to lugar",s:"Hard Rock Stadium · Miami",hi:false},
+        {e:"🏆",d:"19 julio",t:"Gran Final",s:"MetLife Stadium · Nueva York/NJ",hi:true},
+      ].map((item,idx,arr)=>`
+        <div style="display:flex;gap:12px;padding:11px 0;${idx<arr.length-1?'border-bottom:1px solid var(--border)':''}${item.hi?';background:none':''}">
+          <div style="font-size:20px;flex-shrink:0;width:28px;text-align:center">${item.e}</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:12px;font-weight:700;color:${item.hi?'var(--navy)':'var(--text)'}">${item.t}</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:1px">${item.s}</div>
+          </div>
+          <div style="font-size:11px;font-weight:700;color:${item.hi?'var(--red-text)':'var(--muted)'};flex-shrink:0;text-align:right">${item.d}</div>
+        </div>`).join('')}
+    </div>
+  </div>
+
+  <!-- REGLAS GENERALES -->
+  <div class="sec-title" style="margin-bottom:10px">📜 Reglas generales</div>
   <div class="card">
-    <div style="display:flex;flex-direction:column;gap:11px;font-size:13px;line-height:1.6">
-      <div>📋 <strong>Registro:</strong> Inscríbete y paga ${fmtMoney(S.cuota)} antes del ${fmtDate(S.deadline)}.</div>
-      <div>📄 <strong>Planillas:</strong> El admin genera la planilla de cada partido en la pestaña Planillas. Cada jugador escribe su pronóstico y se lo envía al admin máximo una hora antes del partido.</div>
-      <div>⚽ <strong>Carga de datos:</strong> El admin sube los pronósticos usando el JSON y registra el resultado real. Los puntos se calculan solos.</div>
-      <div>🔗 <strong>Eliminatorias:</strong> El admin llena el bracket partido a partido. Penales aplican desde la Ronda de 32.</div>
-      <div>📊 <strong>Transparencia:</strong> Todos pueden ver la tabla. El admin puede generar el PDF de cualquier jugador para enviárselo.</div>
-      <div>👤 <strong>Organizador:</strong> ${S.adminName||"Administrador"} — escríbele para inscribirte o resolver dudas.</div>
-      <div>🏆 <strong>Final:</strong> Al terminar el Mundial los 3 primeros ganan el premio.</div>
+    <div style="display:flex;flex-direction:column;gap:10px;font-size:13px;line-height:1.65">
+      <div style="display:flex;gap:10px;align-items:flex-start">
+        <span style="font-size:18px;flex-shrink:0">👨‍💼</span>
+        <div><strong>Administrador único:</strong> Solo ${S.adminName||"el organizador"} maneja la app. Él ingresa resultados, carga pronósticos y gestiona jugadores. Las decisiones del admin son finales.</div>
+      </div>
+      <div style="display:flex;gap:10px;align-items:flex-start">
+        <span style="font-size:18px;flex-shrink:0">🔐</span>
+        <div><strong>Integridad:</strong> Los pronósticos se recogen antes de cada partido y no pueden modificarse una vez cargados. El sistema garantiza que nadie pueda cambiar predicciones pasadas.</div>
+      </div>
+      <div style="display:flex;gap:10px;align-items:flex-start">
+        <span style="font-size:18px;flex-shrink:0">🤝</span>
+        <div><strong>Empate en puntos:</strong> Si dos jugadores terminan con el mismo puntaje, comparten el premio del lugar correspondiente dividiéndolo en partes iguales.</div>
+      </div>
+      <div style="display:flex;gap:10px;align-items:flex-start">
+        <span style="font-size:18px;flex-shrink:0">💸</span>
+        <div><strong>Pago:</strong> El pago de la cuota es condición para participar. Jugadores con pago pendiente aparecen marcados — el admin puede retirarlos si no pagan antes del inicio.</div>
+      </div>
+      <div style="display:flex;gap:10px;align-items:flex-start">
+        <span style="font-size:18px;flex-shrink:0">🌍</span>
+        <div><strong>Resultados oficiales:</strong> Se toman los resultados oficiales de la FIFA al terminar cada partido, incluyendo goles en tiempo extra. No se consideran protestas ni recursos.</div>
+      </div>
+      <div style="display:flex;gap:10px;align-items:flex-start">
+        <span style="font-size:18px;flex-shrink:0">📲</span>
+        <div><strong>Consulta tu tabla:</strong> Puedes ver tu posición, tus pronósticos y tus puntos en cualquier momento en la pestaña <strong>Buscar</strong> o pidiéndole al admin tu PDF personal.</div>
+      </div>
     </div>
   </div>`;
 }
@@ -1395,8 +1575,21 @@ function applyNewPolla(){
   toast("¡Nueva polla creada! Agrega jugadores en Registro.");
   go("registro");
 }
+function hardReset(){
+  // Reset players to DEFAULT_PLAYERS, keep all config
+  const cur=S.currency,pin=S.adminPin,an=S.adminName,dl=S.deadline,cu=S.cuota;
+  S={
+    players:[...DEFAULT_PLAYERS.map(p=>({...p}))],
+    real:{},pred:{},ko:{},koPred:{},pendingRequests:[],
+    deadline:dl||"2026-06-10",cuota:cu||100,
+    adminPin:pin||"2026",adminName:an||"Sergio Castellanos",
+    currency:cur||{code:"USD",symbol:"$",locale:"en-US"}
+  };
+  save();rInfo();
+  toast("✓ Lista actualizada — "+DEFAULT_PLAYERS.length+" jugadores cargados");
+}
 function clearResults(){if(!confirm("¿Borrar TODOS los resultados y pronósticos?"))return;S.real={};S.pred={};S.ko={};S.koPred={};S.pendingRequests=[];save();toast("Borrado ✓");}
-function clearAll(){if(!confirm("¿Resetear TODO? Se perderán todos los datos."))return;const cur=S.currency,an=S.adminName;S={players:[...DEFAULT_PLAYERS.map(p=>({...p}))],real:{},pred:{},ko:{},koPred:{},deadline:"2026-06-07",cuota:100,adminPin:S.adminPin,adminName:an||"Sergio Castellanos",currency:cur||{code:"USD",symbol:"$",locale:"en-US"},pendingRequests:[]};save();toast("App reseteada");go("info");}
+function clearAll(){if(!confirm("¿Resetear TODO? Se perderán todos los datos."))return;const cur=S.currency,an=S.adminName;S={players:[...DEFAULT_PLAYERS.map(p=>({...p}))],real:{},pred:{},ko:{},koPred:{},deadline:"2026-06-10",cuota:100,adminPin:S.adminPin,adminName:an||"Sergio Castellanos",currency:cur||{code:"USD",symbol:"$",locale:"en-US"},pendingRequests:[]};save();toast("App reseteada");go("info");}
 
 // ══════════════════════════════════════════════
 // INPUT HANDLERS
