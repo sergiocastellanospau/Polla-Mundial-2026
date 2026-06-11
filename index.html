@@ -553,16 +553,19 @@ const KO=[
 const KO_LBL={R32:"Ronda de 32",R16:"Octavos de final",QF:"Cuartos de final",SF:"Semifinales","3P":"3er y 4to lugar",FIN:"Gran Final"};
 
 const DEFAULT_PLAYERS=[
-{name:"Alvaro Arias",paid:false},
-{name:"Andres Perilla",paid:false},
+{name:"Alvaro Arias",paid:true},
+{name:"Andres Perilla",paid:true},
 {name:"Cesar Andres Tara",paid:false},
 {name:"Daniel Trejo",paid:false},
 {name:"Eduardo Peñuela",paid:false},
 {name:"Edwin Rodríguez",paid:false},
-{name:"Junior Hurtado",paid:false},
-{name:"Nacho Carrera",paid:false},
-{name:"Samuel Peñuela",paid:false},
-{name:"Sergio Castellanos",paid:false}
+{name:"Javier Rodriguez",paid:false},
+{name:"Jhonatan Agudelo",paid:true},
+{name:"Junior Hurtado",paid:true},
+{name:"Nacho Carrera",paid:true},
+{name:"Samuel Peñuela",paid:true},
+{name:"Samuel Rodriguez",paid:false},
+{name:"Sergio Castellanos",paid:true}
 ];
 
 let S={players:[...DEFAULT_PLAYERS.map(p=>({...p}))],real:{},pred:{},ko:{},deadline:"2026-06-10",cuota:100,adminPin:"2026",adminName:"Sergio Castellanos",currency:{code:"USD",symbol:"$",locale:"en-US"},pendingRequests:[]};
@@ -1087,7 +1090,13 @@ function addPlayer(){
   const n=document.getElementById("new-name")?.value.trim();
   const paid=document.getElementById("new-paid")?.checked||false;
   if(!n){toast("Ingresa un nombre","err");return;}
-  S.players.push({name:n,paid});save();rRegistro();toast(n+" inscrito ✓");
+  S.players.push({name:n,paid});
+  // Re-sort alphabetically after adding
+  S.players.sort((a,b)=>{
+    const norm=s=>s.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();
+    return norm(a.name).localeCompare(norm(b.name));
+  });
+  save();rRegistro();toast(n+" inscrito ✓");
 }
 function sendJoinRequest(){
   const n=document.getElementById("req-name")?.value.trim();
@@ -1576,17 +1585,19 @@ function applyNewPolla(){
   go("registro");
 }
 function hardReset(){
-  // Reset players to DEFAULT_PLAYERS, keep all config
   const cur=S.currency,pin=S.adminPin,an=S.adminName,dl=S.deadline,cu=S.cuota;
+  // Current official players and predictions
+  const officialPlayers=[{"name": "Alvaro Arias", "paid": true}, {"name": "Andres Perilla", "paid": true}, {"name": "Cesar Andres Tara", "paid": false}, {"name": "Daniel Trejo", "paid": false}, {"name": "Eduardo Peñuela", "paid": false}, {"name": "Edwin Rodríguez", "paid": false}, {"name": "Javier Rodriguez", "paid": false}, {"name": "Jhonatan Agudelo", "paid": true}, {"name": "Junior Hurtado", "paid": true}, {"name": "Nacho Carrera", "paid": true}, {"name": "Samuel Peñuela", "paid": true}, {"name": "Samuel Rodriguez", "paid": false}, {"name": "Sergio Castellanos", "paid": true}];
+  const officialPreds={"0_0": {"h": 3, "a": 0}, "1_0": {"h": 1, "a": 2}, "0_4": {"h": 2, "a": 0}, "1_4": {"h": 1, "a": 2}, "0_12": {"h": 3, "a": 1}, "1_12": {"h": 2, "a": 1}, "0_1": {"h": 2, "a": 0}, "1_1": {"h": 1, "a": 1}, "0_3": {"h": 2, "a": 0}, "1_3": {"h": 2, "a": 1}};
   S={
-    players:[...DEFAULT_PLAYERS.map(p=>({...p}))],
-    real:{},pred:{},ko:{},koPred:{},pendingRequests:[],
+    players:officialPlayers,
+    real:{},pred:officialPreds,ko:{},koPred:{},pendingRequests:[],
     deadline:dl||"2026-06-10",cuota:cu||100,
     adminPin:pin||"2026",adminName:an||"Sergio Castellanos",
     currency:cur||{code:"USD",symbol:"$",locale:"en-US"}
   };
   save();rInfo();
-  toast("✓ Lista actualizada — "+DEFAULT_PLAYERS.length+" jugadores cargados");
+  toast("✓ "+officialPlayers.length+" jugadores y pronósticos cargados");
 }
 function clearResults(){if(!confirm("¿Borrar TODOS los resultados y pronósticos?"))return;S.real={};S.pred={};S.ko={};S.koPred={};S.pendingRequests=[];save();toast("Borrado ✓");}
 function clearAll(){if(!confirm("¿Resetear TODO? Se perderán todos los datos."))return;const cur=S.currency,an=S.adminName;S={players:[...DEFAULT_PLAYERS.map(p=>({...p}))],real:{},pred:{},ko:{},koPred:{},deadline:"2026-06-10",cuota:100,adminPin:S.adminPin,adminName:an||"Sergio Castellanos",currency:cur||{code:"USD",symbol:"$",locale:"en-US"},pendingRequests:[]};save();toast("App reseteada");go("info");}
