@@ -730,6 +730,21 @@ const KO=[
 {r:"3P",ms:[{id:"tp",n:"#103",d:"Jul 18",v:"Hard Rock",city:"Miami"}]},
 {r:"FIN",ms:[{id:"final",n:"#104",d:"Jul 19",v:"MetLife",city:"Nueva York"}]}
 ];
+
+// Chronological order of GM matches (indices sorted by date/time)
+// GM is grouped by group, this gives the correct playing order
+const EDT=4;
+const GM_MONTHS={Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
+function gmKickoffMs(m){
+  try{
+    const[mon,day]=m.d.split(" ");
+    const[hh,mm]=m.t.split(":");
+    return Date.UTC(2026,GM_MONTHS[mon],parseInt(day),parseInt(hh)+EDT,parseInt(mm));
+  }catch(e){return 0;}
+}
+// Pre-sorted array of {m, mi} in chronological order
+const GM_CHRONO = GM.map((m,mi)=>({m,mi,k:gmKickoffMs(m)})).sort((a,b)=>a.k-b.k);
+
 const KO_LBL={R32:"Ronda de 32",R16:"Octavos de final",QF:"Cuartos de final",SF:"Semifinales","3P":"3er y 4to lugar",FIN:"Gran Final"};
 
 const DEFAULT_PLAYERS=[{"name": "Alvaro Arias", "paid": true}, {"name": "Andres Perilla", "paid": true}, {"name": "Cesar Andres Tara", "paid": false}, {"name": "Daniel Trejo", "paid": false}, {"name": "Eduardo Peñuela", "paid": false}, {"name": "Edwin Rodríguez", "paid": false}, {"name": "Javier Rodriguez", "paid": false}, {"name": "Jhonatan Agudelo", "paid": true}, {"name": "Jhony Moreno", "paid": false}, {"name": "Junior Hurtado", "paid": true}, {"name": "Nacho Carrera", "paid": true}, {"name": "Samuel Peñuela", "paid": true}, {"name": "Samuel Rodriguez", "paid": false}, {"name": "Sergio Castellanos", "paid": true}];
@@ -1178,7 +1193,9 @@ function rPartidos(){
   let h=`<div class="filter-strip">${gs.map(g=>`<button class="fp${filt===g?" on":""}" onclick="setFilt('${g}')">${g==="all"?"Todos":"Grupo "+g}</button>`).join("")}</div>
   <input class="search-box" placeholder="🔍 Buscar equipo..." value="${srch.replace(/"/g,"&quot;")}" oninput="setSrch(this.value)">`;
   let lastG=null;
-  GM.forEach((m,mi)=>{
+  // When showing all, use chronological order; when filtered by group, use original GM order
+  const displayList = filt==="all" ? GM_CHRONO : GM.map((m,mi)=>({m,mi}));
+  displayList.forEach(({m,mi})=>{
     if((filt!=="all"&&filt!==m.g)||( srch&&!(m.h+m.a).toLowerCase().includes(srch.toLowerCase())))return;
     if(filt!=="all" && m.g!==lastG){h+=`<div class="phase-sep"><div class="phase-line"></div><div class="phase-badge">Grupo ${m.g}</div><div class="phase-line"></div></div>`;lastG=m.g;}
     const r=S.real[String(mi)]||{};
@@ -2790,12 +2807,12 @@ function rMiPredForm(el){
   const now    = new Date();
 
   // Upcoming = no real result yet AND not locked
-  const upcoming = GM.map((m,mi)=>({m,mi})).filter(({mi,m})=>{
+  // Use chronological order (GM_CHRONO is pre-sorted by kickoff time)
+  const upcoming = GM_CHRONO.filter(({mi})=>{
     const r = S.real[String(mi)];
-    const played = r && r.h!==undefined && r.a!==undefined;
-    return !played;
+    return !r || r.h===undefined || r.a===undefined;
   });
-  const played = GM.map((m,mi)=>({m,mi})).filter(({mi})=>{
+  const played = GM_CHRONO.filter(({mi})=>{
     const r = S.real[String(mi)];
     return r && r.h!==undefined && r.a!==undefined;
   });
