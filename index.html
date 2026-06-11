@@ -568,7 +568,7 @@ const DEFAULT_PLAYERS=[
 {name:"Sergio Castellanos",paid:true}
 ];
 
-let S={players:[...DEFAULT_PLAYERS.map(p=>({...p}))],real:{},pred:{},ko:{},deadline:"2026-06-10",cuota:100,adminPin:"2026",adminName:"Sergio Castellanos",currency:{code:"USD",symbol:"$",locale:"en-US"},pendingRequests:[]};
+let S={players:[...DEFAULT_PLAYERS.map(p=>({...p}))],real:{},pred:{},ko:{},koPred:{},deadline:"2026-06-10",cuota:100,adminPin:"2026",adminName:"Sergio Castellanos",currency:{code:"USD",symbol:"$",locale:"en-US"},pendingRequests:[]};
 let isAdmin=false;
 
 function save(){try{localStorage.setItem("pm26v4",JSON.stringify(S));}catch(e){}}
@@ -1715,7 +1715,6 @@ function applyNewPolla(){
 }
 function hardReset(){
   const cur=S.currency,pin=S.adminPin,an=S.adminName,dl=S.deadline,cu=S.cuota;
-  // Current official players and predictions
   const officialPlayers=[{"name": "Alvaro Arias", "paid": true}, {"name": "Andres Perilla", "paid": true}, {"name": "Cesar Andres Tara", "paid": false}, {"name": "Daniel Trejo", "paid": false}, {"name": "Eduardo Peñuela", "paid": false}, {"name": "Edwin Rodríguez", "paid": false}, {"name": "Javier Rodriguez", "paid": false}, {"name": "Jhonatan Agudelo", "paid": true}, {"name": "Junior Hurtado", "paid": true}, {"name": "Nacho Carrera", "paid": true}, {"name": "Samuel Peñuela", "paid": true}, {"name": "Samuel Rodriguez", "paid": false}, {"name": "Sergio Castellanos", "paid": true}];
   const officialPreds={"0_0": {"h": 3, "a": 0}, "1_0": {"h": 1, "a": 2}, "0_4": {"h": 2, "a": 0}, "1_4": {"h": 1, "a": 2}, "0_12": {"h": 3, "a": 1}, "1_12": {"h": 2, "a": 1}, "0_1": {"h": 2, "a": 0}, "1_1": {"h": 1, "a": 1}, "0_3": {"h": 2, "a": 0}, "1_3": {"h": 2, "a": 1}};
   S={
@@ -1726,7 +1725,7 @@ function hardReset(){
     currency:cur||{code:"USD",symbol:"$",locale:"en-US"}
   };
   save();rInfo();
-  toast("✓ "+officialPlayers.length+" jugadores y pronósticos cargados");
+  toast("✓ "+officialPlayers.length+" jugadores y "+Object.keys(officialPreds).length+" pronósticos cargados");
 }
 function clearResults(){if(!confirm("¿Borrar TODOS los resultados y pronósticos?"))return;S.real={};S.pred={};S.ko={};S.koPred={};S.pendingRequests=[];save();toast("Borrado ✓");}
 function clearAll(){if(!confirm("¿Resetear TODO? Se perderán todos los datos."))return;const cur=S.currency,an=S.adminName;S={players:[...DEFAULT_PLAYERS.map(p=>({...p}))],real:{},pred:{},ko:{},koPred:{},deadline:"2026-06-10",cuota:100,adminPin:S.adminPin,adminName:an||"Sergio Castellanos",currency:cur||{code:"USD",symbol:"$",locale:"en-US"},pendingRequests:[]};save();toast("App reseteada");go("info");}
