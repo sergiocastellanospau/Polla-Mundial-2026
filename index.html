@@ -402,6 +402,117 @@ body{padding-bottom:calc(72px + var(--safe-bot))}
 }
 
 
+/* ── PDF MODAL (in-page, no window.open) ─────────────────── */
+.pdf-overlay{position:fixed;inset:0;z-index:500;display:flex;flex-direction:column;
+  background:rgba(0,0,0,.88);backdrop-filter:blur(6px);overflow:hidden;
+  -webkit-overflow-scrolling:touch}
+.pdf-topbar{background:#0D1B2A;display:flex;align-items:center;gap:10px;
+  padding:12px 16px;flex-shrink:0;border-bottom:1px solid rgba(201,168,67,.25);
+  padding-top:calc(12px + var(--safe-top,0px))}
+.pdf-topbar-title{font-family:var(--fd);font-size:16px;color:var(--gold);
+  letter-spacing:.04em;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pdf-topbar-btn{background:var(--gold);color:var(--navy);border:none;
+  padding:8px 16px;border-radius:var(--r-sm);font-size:12px;font-weight:700;
+  cursor:pointer;flex-shrink:0;display:flex;align-items:center;gap:5px}
+.pdf-topbar-btn:hover{background:var(--gold2)}
+.pdf-topbar-close{width:34px;height:34px;border-radius:50%;border:1px solid rgba(255,255,255,.2);
+  background:none;cursor:pointer;color:rgba(255,255,255,.7);font-size:20px;
+  display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.pdf-topbar-close:hover{background:rgba(255,255,255,.1)}
+.pdf-scroll{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;
+  background:#3d3d3d;padding:16px;min-height:0}
+.pdf-page-wrap{max-width:820px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+
+/* The actual printable page */
+.pdf-pg{background:#fff;border-radius:6px;box-shadow:0 4px 32px rgba(0,0,0,.4);
+  padding:40px 44px;font-family:'DM Sans',Arial,sans-serif;color:#1A1A2E;
+  page-break-after:always;position:relative;min-height:400px;
+  width:100%;max-width:820px}
+@media(max-width:600px){.pdf-pg{padding:18px!important}}
+@media(max-width:600px){.pdf-pg{padding:22px 18px;border-radius:4px}}
+
+/* PDF page internals */
+.pdf-pg .ph{display:flex;align-items:flex-start;justify-content:space-between;
+  margin-bottom:20px;padding-bottom:14px;border-bottom:2.5px solid #0D1B2A;gap:12px}
+.pdf-pg .ph-left .ph-ey{font-size:9px;font-weight:700;letter-spacing:.1em;
+  color:#888;text-transform:uppercase;margin-bottom:3px}
+.pdf-pg .ph-left .ph-title{font-size:24px;font-weight:700;color:#0D1B2A;line-height:1.1}
+.pdf-pg .ph-left .ph-sub{font-size:11px;color:#666;margin-top:2px}
+.pdf-pg .ph-right{text-align:right;flex-shrink:0}
+.pdf-pg .ph-right .ph-date{font-size:16px;font-weight:700;color:#0D1B2A;line-height:1}
+.pdf-pg .ph-right .ph-venue{font-size:10px;color:#888;margin-top:2px}
+
+.pdf-mhero{background:#0D1B2A;border-radius:10px;padding:16px 20px;
+  margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.pdf-mh-team{text-align:center;flex:1;min-width:0}
+.pdf-mh-flag{font-size:38px;display:block;margin-bottom:4px;line-height:1}
+.pdf-mh-name{font-size:13px;font-weight:700;color:#fff;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis}
+.pdf-mh-grp{font-size:9px;color:rgba(255,255,255,.4);letter-spacing:.06em;
+  text-transform:uppercase;margin-top:2px}
+.pdf-mh-ctr{text-align:center;flex-shrink:0;padding:0 12px}
+.pdf-mh-vs{font-size:20px;font-weight:700;color:#C9A843;display:block}
+.pdf-mh-time{font-size:10px;color:rgba(201,168,67,.55);margin-top:2px}
+
+.pdf-stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px}
+.pdf-stat-pill{background:#F5F3EE;border-radius:8px;padding:10px;text-align:center}
+.pdf-stat-val{font-size:20px;font-weight:700;color:#0D1B2A;line-height:1;
+  font-family:'Bebas Neue',sans-serif}
+.pdf-stat-lbl{font-size:9px;color:#888;letter-spacing:.05em;
+  text-transform:uppercase;margin-top:2px}
+
+.pdf-instr{background:#FFF8E1;border:1px solid #FDE68A;border-radius:8px;
+  padding:10px 14px;margin-bottom:14px;font-size:10px;color:#92400E;line-height:1.6}
+
+.pdf-tbl{width:100%;border-collapse:collapse;margin-bottom:12px}
+.pdf-tbl thead th{background:#0D1B2A;color:#C9A843;font-size:10px;font-weight:700;
+  letter-spacing:.06em;text-transform:uppercase;padding:8px 10px;text-align:center;
+  -webkit-print-color-adjust:exact;print-color-adjust:exact}
+.pdf-tbl thead th:first-child{text-align:left;padding-left:14px}
+.pdf-tbl tbody tr:nth-child(even) td{background:#FAFAF8;
+  -webkit-print-color-adjust:exact;print-color-adjust:exact}
+.pdf-tbl tbody td{border-bottom:1px solid #E5E2DA;padding:8px 10px;
+  font-size:12px;color:#1A1A2E;text-align:center;vertical-align:middle}
+.pdf-tbl tbody td:first-child{text-align:left;padding-left:14px}
+.pdf-av-s{width:24px;height:24px;border-radius:50%;display:inline-flex;
+  align-items:center;justify-content:center;font-size:9px;font-weight:700;
+  color:#fff;vertical-align:middle;margin-right:5px;flex-shrink:0}
+.pdf-score-chip{display:inline-flex;align-items:center;gap:3px;background:#EFF6FF;
+  border:1px solid #BFDBFE;border-radius:4px;padding:2px 7px;
+  font-size:12px;font-weight:700;color:#1D4ED8}
+.pdf-pts-chip{display:inline-block;font-size:11px;font-weight:700;
+  padding:2px 8px;border-radius:4px}
+.pdf-inp-box{width:30px;height:26px;border:1.5px solid #C5C2BB;border-radius:4px;
+  background:#fff;display:inline-block;vertical-align:middle}
+.pdf-sig-ln{display:inline-block;width:65px;border-bottom:1px dashed #C5C2BB;
+  height:20px;vertical-align:middle}
+
+.pdf-footer{display:flex;align-items:flex-end;justify-content:space-between;
+  padding-top:10px;border-top:1px solid #E5E2DA;margin-top:auto}
+.pdf-footer-note{font-size:9px;color:#9CA3AF;max-width:60%;line-height:1.5}
+.pdf-footer-brand{font-size:11px;font-weight:700;color:#0D1B2A;letter-spacing:.03em}
+
+.pdf-hero-blk{background:#0D1B2A;border-radius:10px;padding:14px 18px;
+  margin-bottom:14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.pdf-av-big{width:48px;height:48px;border-radius:50%;display:flex;
+  align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;
+  font-size:20px;color:#fff;flex-shrink:0}
+
+/* Print — hide topbar, show pages cleanly */
+@media print{
+  .pdf-overlay,.pdf-topbar{display:none!important}
+  .topnav,.botnav,button,#modal-root{display:none!important}
+  body{background:#fff!important;padding:0!important}
+  .pdf-pg{box-shadow:none!important;border-radius:0!important;
+    padding:24px!important;page-break-after:always}
+  .pdf-tbl thead th,.pdf-mhero,.pdf-hero-blk,
+  .pdf-tbl tbody tr:nth-child(even) td{
+    -webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+  .pdf-scroll{overflow:visible!important;background:#fff!important;padding:0!important}
+  .pdf-page-wrap{max-width:100%!important;gap:0!important}
+}
+
+
 /* ── EN VIVO ─────────────────────────────────────────────── */
 .ev-live-badge{display:inline-flex;align-items:center;gap:4px;background:var(--red);
   color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px}
@@ -461,7 +572,6 @@ body{padding-bottom:calc(72px + var(--safe-bot))}
       <button class="nb on" onclick="go('info')">Premios</button>
       <button class="nb" onclick="go('buscar')">Buscar</button>
       <button class="nb" onclick="go('mipred')">✏️ Mi pronóstico</button>
-      <button class="nb" onclick="go('envivo')">🔴 En vivo</button>
       <button class="nb" onclick="go('admin')">Admin<span class="adot"></span></button>
     </div>
   </div>
@@ -477,7 +587,6 @@ body{padding-bottom:calc(72px + var(--safe-bot))}
   <div id="p-info"     class="panel on"></div>
   <div id="p-admin"    class="panel"></div>
   <div id="p-buscar"   class="panel"></div>
-  <div id="p-envivo"  class="panel"></div>
   <div id="p-mipred"   class="panel"></div>
 </div>
 
@@ -488,7 +597,6 @@ body{padding-bottom:calc(72px + var(--safe-bot))}
   <button class="bn-btn" onclick="go('buscar')"><span class="bn-emoji">🔍</span><span class="bn-label">Buscar</span></button>
   <button class="bn-btn" onclick="go('planilla')"><span class="bn-emoji">📋</span><span class="bn-label">Planillas</span></button>
   <button class="bn-btn" onclick="go('mipred')"><span class="bn-emoji">✏️</span><span class="bn-label">Mi pred</span></button>
-  <button class="bn-btn" onclick="go('envivo')"><span class="bn-emoji">🔴</span><span class="bn-label">En vivo</span></button>
   <button class="bn-btn" onclick="go('admin')"><span class="bn-emoji">⚙️</span><span class="bn-label">Admin</span></button>
 </nav>
 
@@ -622,7 +730,7 @@ const KO_LBL={R32:"Ronda de 32",R16:"Octavos de final",QF:"Cuartos de final",SF:
 
 const DEFAULT_PLAYERS=[{"name": "Alvaro Arias", "paid": true}, {"name": "Andres Perilla", "paid": true}, {"name": "Cesar Andres Tara", "paid": false}, {"name": "Daniel Trejo", "paid": false}, {"name": "Eduardo Peñuela", "paid": false}, {"name": "Edwin Rodríguez", "paid": false}, {"name": "Javier Rodriguez", "paid": false}, {"name": "Jhonatan Agudelo", "paid": true}, {"name": "Jhony Moreno", "paid": false}, {"name": "Junior Hurtado", "paid": true}, {"name": "Nacho Carrera", "paid": true}, {"name": "Samuel Peñuela", "paid": true}, {"name": "Samuel Rodriguez", "paid": false}, {"name": "Sergio Castellanos", "paid": true}];
 
-let S={players:[...DEFAULT_PLAYERS.map(p=>({...p}))],real:{0:{h:2,a:0}},pred:{},ko:{},koPred:{},deadline:"2026-06-10",cuota:100,adminPin:"2026",adminName:"Sergio Castellanos",currency:{code:"USD",symbol:"$",locale:"en-US"},pendingRequests:[]};
+let S={players:[...DEFAULT_PLAYERS.map(p=>({...p}))],real:{"0":{h:2,a:0}},pred:{},ko:{},koPred:{},deadline:"2026-06-10",cuota:100,adminPin:"2026",adminName:"Sergio Castellanos",currency:{code:"USD",symbol:"$",locale:"en-US"},pendingRequests:[]};
 let isAdmin=false;
 
 // ════════════════════════════════════════════════════════════
@@ -655,7 +763,7 @@ function fbInit(){
         // Merge incoming data — keep local structure intact
         S.players        = data.players        || S.players;
         // Merge real results — official results take precedence, never overwrite with empty
-        const officialReal = {0:{h:2,a:0}}; // México 2-0 Sudáfrica (oficial)
+        const officialReal = {"0":{h:2,a:0}}; // México 2-0 Sudáfrica (oficial)
         S.real = Object.assign(officialReal, data.real||{});
         S.pred           = data.pred           || {};
         S.ko             = data.ko             || {};
@@ -714,10 +822,7 @@ function save(){
       pendingRequests: S.pendingRequests||[],
     };
     fbRef.set(toSave).catch(e=>console.warn("Firebase save error:",e));
-    // Also store real results in polla2026/scores for En Vivo tab
-    if(S.real && Object.keys(S.real).length>0){
-      fbDb.ref("polla2026/scores").set(S.real).catch(e=>{});
-    }
+
   }
 }
 
@@ -742,7 +847,7 @@ function load(){
   }catch(e){}
   // ALWAYS enforce official FIFA results — cannot be overridden
   if(!S.real) S.real={};
-  S.real[0] = {h:2, a:0}; // ✅ México 2-0 Sudáfrica — 11 Jun 2026
+  S.real["0"] = {h:2, a:0}; // México 2-0 Sudáfrica (oficial)
 }
 load();
 // Firebase connects asynchronously — data syncs via listener above
@@ -806,7 +911,7 @@ function totals(){
     let t=0;
     // Group stage
     GM.forEach((_m,mi)=>{
-      const r=S.real[mi],p=S.pred[`${mi}_${pi}`];
+      const r=S.real[String(mi)],p=S.pred[`${mi}_${pi}`];
       if(!r||!p)return;
       const v=calcPts(r.h,r.a,p.h,p.a,false);
       if(v!==null)t+=v;
@@ -824,7 +929,7 @@ function totals(){
 }
 
 // NAV
-const RENDERS={tabla:rTabla,partidos:rPartidos,bracket:rBracket,jugador:rJugador,registro:rRegistro,planilla:rPlanilla,buscar:rBuscar,mipred:rMiPred,info:rInfo,envivo:rEnvivo,admin:rAdmin};
+const RENDERS={tabla:rTabla,partidos:rPartidos,bracket:rBracket,jugador:rJugador,registro:rRegistro,planilla:rPlanilla,buscar:rBuscar,mipred:rMiPred,info:rInfo,admin:rAdmin};
 function go(tab){
   if(tab==="admin"&&!isAdmin){showLock(tab);return;}
   // Reset buscar detail view when leaving
@@ -936,7 +1041,7 @@ function rPartidos(){
   GM.forEach((m,mi)=>{
     if((filt!=="all"&&filt!==m.g)||( srch&&!(m.h+m.a).toLowerCase().includes(srch.toLowerCase())))return;
     if(m.g!==lastG){h+=`<div class="phase-sep"><div class="phase-line"></div><div class="phase-badge">Grupo ${m.g}</div><div class="phase-line"></div></div>`;lastG=m.g;}
-    const r=S.real[mi]||{};
+    const r=S.real[String(mi)]||{};
     const hasR=r.h!==undefined&&r.a!==undefined;
     const scoreDisplay=isAdmin
       ?`<div class="mc-scores">
@@ -1132,7 +1237,7 @@ function rJugador(){
   const rank=ranked.indexOf(T[activeP])+1,p=S.players[activeP];
   let rows="";
   GM.forEach((m,mi)=>{
-    const r=S.real[mi],pr=S.pred[`${mi}_${activeP}`];
+    const r=S.real[String(mi)],pr=S.pred[`${mi}_${activeP}`];
     const v=r&&pr?calcPts(r.h,r.a,pr.h,pr.a,false):null;
     const cls=v===null?"pt-n":v===0?"pt-0":v===3?"pt-3":v===5?"pt-5":"pt-7";
     rows+=`<tr>
@@ -1377,7 +1482,7 @@ function rPlanilla(){
 function renderPlanillaForm(){
   const mi = planMi;
   const m = GM[mi];
-  const r = S.real[mi]||{};
+  const r = S.real[String(mi)]||{};
   const hasResult = r.h!==undefined && r.a!==undefined;
 
   // Build player input rows
@@ -1908,7 +2013,7 @@ function hardReset(){
   const officialPreds={"0_0": {"h": 3, "a": 0}, "0_1": {"h": 2, "a": 0}, "0_2": {"h": 3, "a": 2}, "0_3": {"h": 2, "a": 0}, "0_4": {"h": 2, "a": 0}, "0_5": {"h": 3, "a": 1}, "0_6": {"h": 2, "a": 0}, "0_8": {"h": 2, "a": 1}, "0_9": {"h": 2, "a": 0}, "0_10": {"h": 3, "a": 1}, "0_11": {"h": 2, "a": 0}, "0_12": {"h": 0, "a": 2}, "0_13": {"h": 3, "a": 1}, "1_0": {"h": 1, "a": 2}, "1_1": {"h": 1, "a": 1}, "1_2": {"h": 0, "a": 1}, "1_3": {"h": 2, "a": 1}, "1_4": {"h": 1, "a": 2}, "1_5": {"h": 1, "a": 1}, "1_6": {"h": 2, "a": 0}, "1_7": {"h": 1, "a": 1}, "1_8": {"h": 1, "a": 1}, "1_9": {"h": 1, "a": 1}, "1_10": {"h": 3, "a": 1}, "1_11": {"h": 2, "a": 0}, "1_12": {"h": 0, "a": 2}, "1_13": {"h": 2, "a": 1}};
   S={
     players:officialPlayers,
-    real:{0:{"h":2,"a":0}},pred:officialPreds,ko:{},koPred:{},pendingRequests:[],
+    real:{"0":{"h":2,"a":0}},pred:officialPreds,ko:{},koPred:{},pendingRequests:[],
     deadline:dl||"2026-06-10",cuota:cu||100,
     adminPin:pin||"2026",adminName:an||"Sergio Castellanos",
     currency:cur||{code:"USD",symbol:"$",locale:"en-US"}
@@ -1924,11 +2029,15 @@ function clearAll(){if(!confirm("¿Resetear TODO? Se perderán todos los datos."
 // ══════════════════════════════════════════════
 function onReal(inp){
   if(!isAdmin)return;
-  const mi=+inp.dataset.mi,side=inp.dataset.side,val=inp.value===""?undefined:+inp.value;
-  if(!S.real[mi])S.real[mi]={};
-  if(val===undefined)delete S.real[mi][side];else S.real[mi][side]=val;
-  if(S.real[mi].h===undefined&&S.real[mi].a===undefined)delete S.real[mi];
+  const mi=+inp.dataset.mi, mik=String(mi), side=inp.dataset.side;
+  const val=inp.value===""?undefined:+inp.value;
+  if(!S.real[mik])S.real[mik]={};
+  if(val===undefined)delete S.real[mik][side];else S.real[mik][side]=val;
+  if(S.real[mik].h===undefined&&S.real[mik].a===undefined)delete S.real[mik];
+  S.real["0"]={h:2,a:0}; // always keep official results
   save();
+  const active=document.querySelector(".panel.on");
+  if(active){const tab=active.id.replace("p-","");RENDERS[tab]?.();}
 }
 function onPred(inp){
   if(!isAdmin)return;
@@ -1938,7 +2047,7 @@ function onPred(inp){
   if(val===undefined)delete S.pred[key][side];else S.pred[key][side]=val;
   if(S.pred[key]&&S.pred[key].h===undefined&&S.pred[key].a===undefined)delete S.pred[key];
   save();
-  const r=S.real[mi],pr=S.pred[key];
+  const r=S.real[String(mi)],pr=S.pred[key];
   if(r&&r.h!==undefined&&r.a!==undefined&&pr&&pr.h!==undefined&&pr.a!==undefined){
     const v=calcPts(r.h,r.a,pr.h,pr.a,false);
     const cls=v===0?"pt-0":v===3?"pt-3":v===5?"pt-5":"pt-7";
@@ -2018,7 +2127,7 @@ function pdfJugador(pi){
   const today=new Date().toLocaleDateString("es",{day:"numeric",month:"long",year:"numeric"});
   const played=Object.keys(S.real).length;
   const rows=GM.map((m,mi)=>{
-    const r=S.real[mi],pr=S.pred[`${mi}_${pi}`];
+    const r=S.real[String(mi)],pr=S.pred[`${mi}_${pi}`];
     const v=r&&pr?calcPts(r.h,r.a,pr.h,pr.a,false):null;
     const pstyle=v===null?"background:#F9F8F5;color:#9CA3AF":v===0?"background:#FFF1F2;color:#BE123C":v===3?"background:#EFF6FF;color:#1D4ED8":v===5?"background:#F0FDF4;color:#15803D":"background:#FFFBEB;color:#92400E";
     return`<tr><td style="font-size:10px;color:#888">${m.n}</td>
@@ -2237,7 +2346,7 @@ function rBuscarDetalle(pi, el){
   // Stats
   let exactos=0, correctos=0, fallos=0, sinPred=0, totalPts=T[pi];
   const matchRows = GM.map((m,mi)=>{
-    const r = S.real[mi];
+    const r = S.real[String(mi)];
     const pr = S.pred[`${mi}_${pi}`];
     const hasR = r && r.h!==undefined && r.a!==undefined;
     const hasPr = pr && pr.h!==undefined && pr.a!==undefined;
@@ -2457,12 +2566,12 @@ function rMiPredForm(el){
 
   // Upcoming = no real result yet AND not locked
   const upcoming = GM.map((m,mi)=>({m,mi})).filter(({mi,m})=>{
-    const r = S.real[mi];
+    const r = S.real[String(mi)];
     const played = r && r.h!==undefined && r.a!==undefined;
     return !played;
   });
   const played = GM.map((m,mi)=>({m,mi})).filter(({mi})=>{
-    const r = S.real[mi];
+    const r = S.real[String(mi)];
     return r && r.h!==undefined && r.a!==undefined;
   });
 
@@ -2517,7 +2626,7 @@ function rMiPredForm(el){
   let playedRows = played.map(({m,mi})=>{
     const key = `${mi}_${pi}`;
     const pr  = S.pred[key]||{};
-    const r   = S.real[mi];
+    const r   = S.real[String(mi)];
     const v   = r&&pr.h!==undefined?calcPts(r.h,r.a,pr.h,pr.a,false):null;
     const cls = v===null?"pt-n":v===0?"pt-0":v===3?"pt-3":v===5?"pt-5":"pt-7";
     return `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)">
@@ -2590,7 +2699,7 @@ function saveMyPred(mi, pi){
     toast("Ingresa los dos marcadores","err"); return;
   }
   // BLOCK if match already has a real result
-  const r = S.real[mi];
+  const r = S.real[String(mi)];
   if(r && r.h!==undefined && r.a!==undefined){
     toast("⛔ Este partido ya se jugó — no puedes cambiar el pronóstico","err"); return;
   }
@@ -2624,298 +2733,6 @@ function isMatchLocked(m){
 
 
 
-// ════════════════════════════════════════════════════════════
-//  EN VIVO — Firebase Realtime Scores (powered by football-data.org)
-// ════════════════════════════════════════════════════════════
-let evListener = null;
-
-function rEnvivo(){
-  const el = document.getElementById("p-envivo");
-  if(!el) return;
-  el.innerHTML = `<div style="text-align:center;padding:20px;color:var(--muted);font-size:13px">
-    <div style="font-size:28px;margin-bottom:8px">⚽</div>Cargando marcadores...</div>`;
-
-  // Listen to Firebase /scores in real time
-  if(evListener) fbDb.ref("polla2026/scores").off("value", evListener);
-  evListener = fbDb.ref("polla2026/scores").on("value", snap => {
-    const raw = snap.val();
-    if(!raw){
-      // No Firebase scores yet — build from S.real (local results)
-      evRenderFromLocal(el);
-      return;
-    }
-    const matches = Object.values(raw).sort((a,b)=>new Date(a.utcDate)-new Date(b.utcDate));
-    evRenderList(el, matches);
-  }, err => {
-    el.innerHTML = `
-    <div class="hero" style="margin-bottom:14px">
-      <div class="hero-ey">FIFA World Cup 2026</div>
-      <div class="hero-t">EN VIVO</div>
-      <div class="hero-s">Marcadores en tiempo real</div>
-    </div>
-    ${evNoDataHtml()}
-    <div class="card" style="border-color:var(--amber-border)">
-      <div class="card-title" style="color:var(--amber-text)"><i class="ti ti-info-circle"></i>Sin datos en vivo aún</div>
-      <div style="font-size:12px;color:var(--muted);line-height:1.7">
-        Los marcadores aparecerán aquí cuando el admin ingrese resultados o cuando el Google Apps Script esté activo.<br><br>
-        <strong>Para el admin:</strong> cuando ingresas un resultado en Planillas, automáticamente aparece aquí para todos.
-      </div>
-    </div>`;
-  });
-}
-
-function evRenderFromLocal(el){
-  // Build match cards from GM + S.real — works without Firebase scores
-  let h = `<div class="hero" style="margin-bottom:14px">
-    <div class="hero-ey">FIFA World Cup 2026</div>
-    <div class="hero-t">RESULTADOS</div>
-    <div class="hero-s">Resultados oficiales ingresados por el admin</div>
-  </div>`;
-
-  const played = GM.map((m,mi)=>({m,mi})).filter(({mi})=>{
-    const r=S.real[mi];
-    return r && r.h!==undefined && r.a!==undefined;
-  });
-
-  const upcoming = GM.map((m,mi)=>({m,mi})).filter(({mi})=>{
-    const r=S.real[mi];
-    return !r || r.h===undefined;
-  });
-
-  if(played.length){
-    h += `<div class="phase-sep"><div class="phase-line"></div><div class="phase-badge">✓ Resultados</div><div class="phase-line"></div></div>`;
-    played.forEach(({m,mi})=>{
-      const r=S.real[mi];
-      const winner = r.h>r.a?"home":r.h<r.a?"away":"draw";
-      h += `<div class="ev-match-card">
-        <div class="ev-match-header">
-          <span class="ev-match-group">Grupo ${m.g}</span>
-          <span class="ev-ft-badge">✓ Final</span>
-          <span class="ev-match-venue">📍 ${m.v} · ${m.city}</span>
-        </div>
-        <div class="ev-scoreline">
-          <div class="ev-team home">
-            <div class="ev-team-name" style="${winner==="home"?"font-weight:900;color:var(--navy)":""}">${m.h}</div>
-            <div class="ev-team-flag">${fl(m.h)}</div>
-          </div>
-          <div class="ev-center">
-            <div class="ev-score">
-              <span class="ev-score-val" style="${winner==="home"?"color:var(--green)":""}">${r.h}</span>
-              <span class="ev-score-sep">–</span>
-              <span class="ev-score-val" style="${winner==="away"?"color:var(--green)":""}">${r.a}</span>
-            </div>
-            <div style="font-size:9px;color:var(--faint);letter-spacing:.06em">${m.d} · ${m.t} EST</div>
-          </div>
-          <div class="ev-team">
-            <div class="ev-team-flag">${fl(m.a)}</div>
-            <div class="ev-team-name" style="${winner==="away"?"font-weight:900;color:var(--navy)":""}">${m.a}</div>
-          </div>
-        </div>
-      </div>`;
-    });
-  }
-
-  if(upcoming.length){
-    h += `<div class="phase-sep"><div class="phase-line"></div><div class="phase-badge">Próximos</div><div class="phase-line"></div></div>`;
-    upcoming.slice(0,6).forEach(({m,mi})=>{
-      h += `<div class="ev-match-card">
-        <div class="ev-match-header">
-          <span class="ev-match-group">Grupo ${m.g}</span>
-          <span class="ev-ns-badge">${matchLocalTime(m.d,m.t)}</span>
-          <span class="ev-match-venue">📍 ${m.city}</span>
-        </div>
-        <div class="ev-scoreline">
-          <div class="ev-team home">
-            <div class="ev-team-name">${m.h}</div>
-            <div class="ev-team-flag">${fl(m.h)}</div>
-          </div>
-          <div class="ev-center">
-            <div class="ev-score">
-              <span style="font-family:var(--fd);font-size:28px;color:var(--faint)">vs</span>
-            </div>
-            <div style="font-size:9px;color:var(--faint);letter-spacing:.06em">${m.n}</div>
-          </div>
-          <div class="ev-team">
-            <div class="ev-team-flag">${fl(m.a)}</div>
-            <div class="ev-team-name">${m.a}</div>
-          </div>
-        </div>
-      </div>`;
-    });
-  }
-
-  if(!played.length && !upcoming.length){
-    h += evNoDataHtml();
-  }
-  el.innerHTML = h;
-}
-
-function evRenderList(el, matches){
-  const live    = matches.filter(m=>["IN_PLAY","PAUSED","HALFTIME"].includes(m.status));
-  const today   = new Date().toISOString().split("T")[0];
-  const todayMs = matches.filter(m=>m.utcDate?.startsWith(today));
-  const finished= matches.filter(m=>m.status==="FINISHED");
-  const upcoming= matches.filter(m=>m.status==="SCHEDULED" && !m.utcDate?.startsWith(today));
-
-  let h = "";
-
-  // Last updated
-  h += `<div style="font-size:10px;color:var(--faint);margin-bottom:12px;text-align:right">
-    Datos actualizados cada 60 seg · ${live.length} en juego ahora
-  </div>`;
-
-  // Live matches first
-  if(live.length){
-    h += `<div class="phase-sep"><div class="phase-line"></div><div class="phase-badge">⚽ En juego ahora</div><div class="phase-line"></div></div>`;
-    live.forEach(m => { h += evMatchCard(m, true); });
-  }
-
-  // Today's matches
-  const todayOther = todayMs.filter(m=>!["IN_PLAY","PAUSED","HALFTIME"].includes(m.status));
-  if(todayOther.length){
-    h += `<div class="phase-sep"><div class="phase-line"></div><div class="phase-badge">Hoy</div><div class="phase-line"></div></div>`;
-    todayOther.forEach(m => { h += evMatchCard(m, false); });
-  }
-
-  // Recent finished (last 5)
-  if(finished.length && !live.length){
-    const recent = finished.slice(-5).reverse();
-    h += `<div class="phase-sep"><div class="phase-line"></div><div class="phase-badge">Últimos resultados</div><div class="phase-line"></div></div>`;
-    recent.forEach(m => { h += evMatchCard(m, false); });
-  }
-
-  if(!h.includes("ev-match-card")){
-    h += evNoDataHtml();
-  }
-
-  el.innerHTML = h;
-}
-
-function evMatchCard(m, isLive){
-  const hs = m.homeScore !== null ? m.homeScore : "–";
-  const as = m.awayScore !== null ? m.awayScore : "–";
-
-  let badge = "";
-  if(m.status === "IN_PLAY"){
-    const period = m.minute > 45 ? "2° Tiempo" : "1° Tiempo";
-    badge = `<span class="ev-live-badge"><span class="ev-live-dot"></span>${m.minute ? m.minute+"' "+period : "EN VIVO"}</span>`;
-  } else if(m.status === "HALFTIME"){
-    badge = `<span class="ev-ht-badge">⏸ Medio tiempo</span>`;
-  } else if(m.status === "PAUSED"){
-    const addedTime = m.minute > 90 ? "Tiempo extra" : "Pausa";
-    badge = `<span class="ev-ht-badge">⏸ ${addedTime}</span>`;
-  } else if(m.status === "EXTRA_TIME"){
-    const period = m.minute > 105 ? "2° Prórroga" : "1° Prórroga";
-    badge = `<span class="ev-live-badge" style="background:#9B2335"><span class="ev-live-dot"></span>${m.minute ? m.minute+"' "+period : "Prórroga"}</span>`;
-  } else if(m.status === "PENALTY_SHOOTOUT"){
-    badge = `<span class="ev-live-badge" style="background:#512E5F"><span class="ev-live-dot"></span>🥅 Penales</span>`;
-  } else if(m.status === "FINISHED"){
-    badge = `<span class="ev-ft-badge">✓ Final</span>`;
-  } else {
-    const t = new Date(m.utcDate);
-    const local = t.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"});
-    const tzShort = t.toLocaleTimeString([],{timeZoneName:"short"}).split(" ").pop();
-    badge = `<span class="ev-ns-badge">${local} ${tzShort}</span>`;
-  }
-
-  const stageLabel = m.group ? `Grupo ${m.group.replace("GROUP_","")}` : (m.stage||"").replace(/_/g," ");
-
-  return `<div class="ev-match-card${isLive?" live":""}">
-    <div class="ev-match-header">
-      <span class="ev-match-group">${stageLabel}</span>
-      ${badge}
-    </div>
-    <div class="ev-scoreline">
-      <div class="ev-team home">
-        <div class="ev-team-name">${m.homeTeam||""}</div>
-        <div class="ev-team-flag">${fl(m.homeTeam)||"🏳️"}</div>
-      </div>
-      <div class="ev-center">
-        <div class="ev-score">
-          <span class="ev-score-val">${hs}</span>
-          <span class="ev-score-sep">–</span>
-          <span class="ev-score-val">${as}</span>
-        </div>
-        ${(m.status==="IN_PLAY"||m.status==="EXTRA_TIME")&&m.minute?`<div class="ev-minute">⏱ ${m.minute}'</div>`:""}
-        ${m.status==="PENALTY_SHOOTOUT"?`<div style="font-size:11px;font-weight:700;color:#9B2335;margin-top:3px;letter-spacing:.04em">🥅 PENALES EN CURSO</div>`:""}
-        ${m.status==="HALFTIME"?`<div style="font-size:10px;color:var(--amber-text);font-weight:700;margin-top:3px">⏸ MEDIO TIEMPO</div>`:""}
-      </div>
-      <div class="ev-team">
-        <div class="ev-team-flag">${fl(m.awayTeam)||"🏳️"}</div>
-        <div class="ev-team-name">${m.awayTeam||""}</div>
-      </div>
-    </div>
-  </div>`;
-}
-
-function evNoDataHtml(){
-  return `<div class="ev-countdown">
-    <div class="ev-cd-title">Próximo partido</div>
-    <div class="ev-cd-match">🇲🇽 México vs Sudáfrica 🇿🇦 · Grupo A</div>
-    <div class="ev-cd-time">📅 11 Jun 2026 · 15:00 EST · Estadio Azteca</div>
-  </div>
-  <div class="card" style="margin-top:10px">
-    <div class="card-title"><i class="ti ti-info-circle"></i>Sobre los marcadores en vivo</div>
-    <div style="font-size:12px;color:var(--muted);line-height:1.7">
-      Los marcadores se actualizan automáticamente cada 60 segundos durante los partidos.<br>
-      No necesitas hacer nada — cuando empiece un partido aquí aparece el marcador en tiempo real.
-    </div>
-  </div>`;
-}
-
-function evRenderNoData(el){
-  el.innerHTML = `<div class="hero" style="margin-bottom:14px">
-    <div class="hero-ey">FIFA World Cup 2026</div>
-    <div class="hero-t">EN VIVO</div>
-    <div class="hero-s">Marcadores en tiempo real · Actualización automática</div>
-  </div>${evNoDataHtml()}`;
-}
-
-// Auto-sync finished scores to predictions/results
-fbDb.ref("polla2026/scores").on("value", snap => {
-  const raw = snap.val();
-  if(!raw || !isAdmin) return;
-  const matches = Object.values(raw);
-  let updated = 0;
-  matches.forEach(m => {
-    if(m.status !== "FINISHED") return;
-    if(m.homeScore === null || m.awayScore === null) return;
-    // Find matching GM index by team names
-    const mi = GM.findIndex(g =>
-      (g.h === m.homeTeam || g.h.includes(m.homeTeam) || m.homeTeam.includes(g.h.split(" ")[0])) &&
-      (g.a === m.awayTeam || g.a.includes(m.awayTeam) || m.awayTeam.includes(g.a.split(" ")[0]))
-    );
-    if(mi < 0) return;
-    const existing = S.real[mi];
-    if(existing && existing.h === m.homeScore && existing.a === m.awayScore) return;
-    // Auto-update result
-    S.real[mi] = { h: m.homeScore, a: m.awayScore };
-    updated++;
-  });
-  if(updated > 0){
-    save();
-    toast(`✓ ${updated} resultado${updated>1?"s":""} actualizado${updated>1?"s":""} automáticamente`);
-    // Re-render if on partidos tab
-    if(document.getElementById("p-partidos")?.classList.contains("on")) rPartidos();
-    if(document.getElementById("p-tabla")?.classList.contains("on")) rTabla();
-  }
-});
-
-
-
-// ── LOCAL CLOCK ──────────────────────────────────────────────
-function updateClock(){
-  const el = document.getElementById("local-clock");
-  if(!el) return;
-  const now = new Date();
-  const time = now.toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"});
-  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-  // Shorten timezone
-  const tzShort = now.toLocaleTimeString([],{timeZoneName:"short"}).split(" ").pop();
-  el.textContent = time + " " + tzShort;
-}
-updateClock();
-setInterval(updateClock, 1000); // update every second
 
 // INIT
 rInfo();
