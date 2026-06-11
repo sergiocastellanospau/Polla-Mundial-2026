@@ -654,7 +654,9 @@ function fbInit(){
       if(data){
         // Merge incoming data — keep local structure intact
         S.players        = data.players        || S.players;
-        S.real           = data.real           || {};
+        // Merge real results — official results take precedence, never overwrite with empty
+        const officialReal = {0:{h:2,a:0}}; // México 2-0 Sudáfrica (oficial)
+        S.real = Object.assign(officialReal, data.real||{});
         S.pred           = data.pred           || {};
         S.ko             = data.ko             || {};
         S.koPred         = data.koPred         || {};
@@ -724,12 +726,23 @@ function load(){
     const d = localStorage.getItem("pm26v4");
     if(d){
       const saved = JSON.parse(d);
-      S = Object.assign(S, saved);
+      // Merge carefully — don't let cached empty values overwrite official data
+      if(saved.players && saved.players.length) S.players = saved.players;
+      if(saved.pred) S.pred = saved.pred;
+      if(saved.ko) S.ko = saved.ko;
+      if(saved.koPred) S.koPred = saved.koPred;
+      if(saved.cuota) S.cuota = saved.cuota;
+      if(saved.adminPin) S.adminPin = saved.adminPin;
+      if(saved.adminName) S.adminName = saved.adminName;
+      if(saved.currency) S.currency = saved.currency;
+      if(saved.pendingRequests) S.pendingRequests = saved.pendingRequests;
+      // Merge real results but keep official ones
+      if(saved.real) S.real = Object.assign({}, saved.real);
     }
   }catch(e){}
-  // Enforce official results always — overrides any cached data
+  // ALWAYS enforce official FIFA results — cannot be overridden
   if(!S.real) S.real={};
-  S.real[0] = {h:2, a:0}; // México 2-0 Sudáfrica — 11 Jun 2026 (oficial FIFA)
+  S.real[0] = {h:2, a:0}; // ✅ México 2-0 Sudáfrica — 11 Jun 2026
 }
 load();
 // Firebase connects asynchronously — data syncs via listener above
@@ -2626,7 +2639,11 @@ function rEnvivo(){
   if(evListener) fbDb.ref("polla2026/scores").off("value", evListener);
   evListener = fbDb.ref("polla2026/scores").on("value", snap => {
     const raw = snap.val();
-    if(!raw){ evRenderNoData(el); return; }
+    if(!raw){
+      // No Firebase scores yet — build from S.real (local results)
+      evRenderFromLocal(el);
+      return;
+    }
     const matches = Object.values(raw).sort((a,b)=>new Date(a.utcDate)-new Date(b.utcDate));
     evRenderList(el, matches);
   }, err => {
@@ -2645,6 +2662,92 @@ function rEnvivo(){
       </div>
     </div>`;
   });
+}
+
+function evRenderFromLocal(el){
+  // Build match cards from GM + S.real — works without Firebase scores
+  let h = `<div class="hero" style="margin-bottom:14px">
+    <div class="hero-ey">FIFA World Cup 2026</div>
+    <div class="hero-t">RESULTADOS</div>
+    <div class="hero-s">Resultados oficiales ingresados por el admin</div>
+  </div>`;
+
+  const played = GM.map((m,mi)=>({m,mi})).filter(({mi})=>{
+    const r=S.real[mi];
+    return r && r.h!==undefined && r.a!==undefined;
+  });
+
+  const upcoming = GM.map((m,mi)=>({m,mi})).filter(({mi})=>{
+    const r=S.real[mi];
+    return !r || r.h===undefined;
+  });
+
+  if(played.length){
+    h += `<div class="phase-sep"><div class="phase-line"></div><div class="phase-badge">✓ Resultados</div><div class="phase-line"></div></div>`;
+    played.forEach(({m,mi})=>{
+      const r=S.real[mi];
+      const winner = r.h>r.a?"home":r.h<r.a?"away":"draw";
+      h += `<div class="ev-match-card">
+        <div class="ev-match-header">
+          <span class="ev-match-group">Grupo ${m.g}</span>
+          <span class="ev-ft-badge">✓ Final</span>
+          <span class="ev-match-venue">📍 ${m.v} · ${m.city}</span>
+        </div>
+        <div class="ev-scoreline">
+          <div class="ev-team home">
+            <div class="ev-team-name" style="${winner==="home"?"font-weight:900;color:var(--navy)":""}">${m.h}</div>
+            <div class="ev-team-flag">${fl(m.h)}</div>
+          </div>
+          <div class="ev-center">
+            <div class="ev-score">
+              <span class="ev-score-val" style="${winner==="home"?"color:var(--green)":""}">${r.h}</span>
+              <span class="ev-score-sep">–</span>
+              <span class="ev-score-val" style="${winner==="away"?"color:var(--green)":""}">${r.a}</span>
+            </div>
+            <div style="font-size:9px;color:var(--faint);letter-spacing:.06em">${m.d} · ${m.t} EST</div>
+          </div>
+          <div class="ev-team">
+            <div class="ev-team-flag">${fl(m.a)}</div>
+            <div class="ev-team-name" style="${winner==="away"?"font-weight:900;color:var(--navy)":""}">${m.a}</div>
+          </div>
+        </div>
+      </div>`;
+    });
+  }
+
+  if(upcoming.length){
+    h += `<div class="phase-sep"><div class="phase-line"></div><div class="phase-badge">Próximos</div><div class="phase-line"></div></div>`;
+    upcoming.slice(0,6).forEach(({m,mi})=>{
+      h += `<div class="ev-match-card">
+        <div class="ev-match-header">
+          <span class="ev-match-group">Grupo ${m.g}</span>
+          <span class="ev-ns-badge">${matchLocalTime(m.d,m.t)}</span>
+          <span class="ev-match-venue">📍 ${m.city}</span>
+        </div>
+        <div class="ev-scoreline">
+          <div class="ev-team home">
+            <div class="ev-team-name">${m.h}</div>
+            <div class="ev-team-flag">${fl(m.h)}</div>
+          </div>
+          <div class="ev-center">
+            <div class="ev-score">
+              <span style="font-family:var(--fd);font-size:28px;color:var(--faint)">vs</span>
+            </div>
+            <div style="font-size:9px;color:var(--faint);letter-spacing:.06em">${m.n}</div>
+          </div>
+          <div class="ev-team">
+            <div class="ev-team-flag">${fl(m.a)}</div>
+            <div class="ev-team-name">${m.a}</div>
+          </div>
+        </div>
+      </div>`;
+    });
+  }
+
+  if(!played.length && !upcoming.length){
+    h += evNoDataHtml();
+  }
+  el.innerHTML = h;
 }
 
 function evRenderList(el, matches){
