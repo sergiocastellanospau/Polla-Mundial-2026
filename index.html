@@ -518,6 +518,7 @@ body{padding-bottom:calc(72px + var(--safe-bot))}
   color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px}
 .ev-live-dot{width:5px;height:5px;border-radius:50%;background:#fff;animation:blink 1s infinite}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+@keyframes shimmer{0%{opacity:.6}50%{opacity:1}100%{opacity:.6}}
 .ev-ft-badge{display:inline-block;background:var(--faint);color:#fff;font-size:10px;
   font-weight:700;padding:2px 8px;border-radius:20px}
 .ev-ns-badge{display:inline-block;background:var(--off);color:var(--muted);font-size:10px;
@@ -569,6 +570,7 @@ body{padding-bottom:calc(72px + var(--safe-bot))}
       <button class="nb" onclick="go('jugador')">Por jugador</button>
       <button class="nb" onclick="go('registro')">Registro</button>
       <button class="nb" onclick="go('planilla')">Planillas</button>
+      <button class="nb" onclick="go('mundial')">🌍 Mundial</button>
       <button class="nb on" onclick="go('info')">Premios</button>
       <button class="nb" onclick="go('buscar')">Buscar</button>
       <button class="nb" onclick="go('mipred')">✏️ Mi pronóstico</button>
@@ -588,6 +590,7 @@ body{padding-bottom:calc(72px + var(--safe-bot))}
   <div id="p-admin"    class="panel"></div>
   <div id="p-buscar"   class="panel"></div>
   <div id="p-mipred"   class="panel"></div>
+  <div id="p-mundial"  class="panel"></div>
 </div>
 
 <nav class="botnav" id="botnav">
@@ -597,6 +600,7 @@ body{padding-bottom:calc(72px + var(--safe-bot))}
   <button class="bn-btn" onclick="go('buscar')"><span class="bn-emoji">🔍</span><span class="bn-label">Buscar</span></button>
   <button class="bn-btn" onclick="go('planilla')"><span class="bn-emoji">📋</span><span class="bn-label">Planillas</span></button>
   <button class="bn-btn" onclick="go('mipred')"><span class="bn-emoji">✏️</span><span class="bn-label">Mi pred</span></button>
+  <button class="bn-btn" onclick="go('mundial')"><span class="bn-emoji">🌍</span><span class="bn-label">Mundial</span></button>
   <button class="bn-btn" onclick="go('admin')"><span class="bn-emoji">⚙️</span><span class="bn-label">Admin</span></button>
 </nav>
 
@@ -853,6 +857,20 @@ load();
 // Firebase connects asynchronously — data syncs via listener above
 fbInit();
 
+// ── LOCAL CLOCK ──────────────────────────────────────────────
+function updateClock(){
+  const el = document.getElementById("local-clock");
+  if(!el) return;
+  const now = new Date();
+  const time = now.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"});
+  const tzShort = now.toLocaleTimeString([],{timeZoneName:"short"}).split(" ").pop();
+  el.textContent = time + " " + tzShort;
+}
+updateClock();
+setInterval(updateClock, 1000);
+
+
+
 // Restore which player this device belongs to
 try{
   const saved = localStorage.getItem("pm26_mypi");
@@ -929,7 +947,7 @@ function totals(){
 }
 
 // NAV
-const RENDERS={tabla:rTabla,partidos:rPartidos,bracket:rBracket,jugador:rJugador,registro:rRegistro,planilla:rPlanilla,buscar:rBuscar,mipred:rMiPred,info:rInfo,admin:rAdmin};
+const RENDERS={tabla:rTabla,partidos:rPartidos,bracket:rBracket,jugador:rJugador,registro:rRegistro,planilla:rPlanilla,buscar:rBuscar,mipred:rMiPred,mundial:rMundial,info:rInfo,admin:rAdmin};
 function go(tab){
   if(tab==="admin"&&!isAdmin){showLock(tab);return;}
   // Reset buscar detail view when leaving
@@ -988,6 +1006,183 @@ function toast(msg,type="ok"){
 // ══════════════════════════════════════════════
 // TABLA
 // ══════════════════════════════════════════════
+
+// ════════════════════════════════════════════════════════════
+//  HOY Y PRÓXIMOS PARTIDOS — Widget para la Tabla
+// ════════════════════════════════════════════════════════════
+function buildUpcomingWidget(){
+  // Parse match datetime and compare with now (local time)
+  // Match times are in EDT (UTC-4) during June-July 2026
+  const EDT_OFFSET = 4 * 60; // minutes
+  const months = {Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
+
+  function matchUTCms(m){
+    try{
+      const [mon,day] = m.d.split(" ");
+      const [hh,mm]   = m.t.split(":");
+      return Date.UTC(2026, months[mon], parseInt(day),
+                      parseInt(hh)+EDT_OFFSET/60, parseInt(mm));
+    }catch(e){ return Infinity; }
+  }
+
+  const now = Date.now();
+  const todayUTC = new Date();
+  todayUTC.setUTCHours(EDT_OFFSET/60,0,0,0); // start of today in EDT
+
+  // Categorize matches
+  const live     = [];
+  const today    = [];
+  const upcoming = [];
+
+  GM.forEach((m,mi)=>{
+    const kickoff = matchUTCms(m);
+    const end     = kickoff + 115*60*1000; // ~115 min after kickoff
+    const r       = S.real[String(mi)];
+    const hasResult = r && r.h!==undefined && r.a!==undefined;
+    const isToday   = new Date(kickoff).toDateString() === new Date().toDateString();
+
+    if(hasResult && isToday){
+      today.push({m,mi,kickoff,done:true});
+    } else if(!hasResult && now >= kickoff - 5*60*1000 && now <= end){
+      live.push({m,mi,kickoff,done:false});
+    } else if(!hasResult && kickoff > now){
+      upcoming.push({m,mi,kickoff,done:false});
+    } else if(hasResult && kickoff > now - 3*60*60*1000 && isToday){
+      today.push({m,mi,kickoff,done:true});
+    }
+  });
+
+  // Sort upcoming chronologically, take next 5
+  upcoming.sort((a,b)=>a.kickoff-b.kickoff);
+  const nextFive = upcoming.slice(0,5);
+
+  // Nothing to show
+  if(!live.length && !today.length && !nextFive.length) return '';
+
+  let h = `<div style="margin-bottom:16px">
+    <div class="sec-title" style="margin-bottom:10px">
+      ${live.length ? '🔴 En curso · ' : ''}📅 Hoy y próximos partidos
+    </div>`;
+
+  // ── LIVE matches ──────────────────────────────────────────
+  live.forEach(({m,mi})=>{
+    const r = S.real[String(mi)]||{};
+    h += `<div onclick="go('partidos')" style="cursor:pointer;background:#0D1B2A;border:2px solid var(--red);
+      border-radius:var(--r);padding:12px 14px;margin-bottom:8px;position:relative;overflow:hidden">
+      <div style="position:absolute;top:0;left:0;right:0;height:2px;
+        background:linear-gradient(90deg,var(--red),transparent);animation:shimmer 2s infinite"></div>
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
+        <span style="display:inline-flex;align-items:center;gap:4px;background:var(--red);
+          color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px">
+          <span style="width:5px;height:5px;border-radius:50%;background:#fff;
+            animation:blink 1s infinite;display:inline-block"></span>EN VIVO
+        </span>
+        <span style="font-size:10px;color:rgba(255,255,255,.4)">Grupo ${m.g} · ${m.v}</span>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px">
+        <div style="text-align:center">
+          <div style="font-size:22px">${fl(m.h)}</div>
+          <div style="font-size:11px;font-weight:700;color:#fff;margin-top:2px">${m.h}</div>
+        </div>
+        <div style="text-align:center">
+          <div style="font-family:var(--fd);font-size:32px;color:var(--gold);line-height:1">
+            ${r.h!==undefined?r.h:'–'} – ${r.a!==undefined?r.a:'–'}
+          </div>
+          <div style="font-size:9px;color:rgba(255,255,255,.4);letter-spacing:.06em">TIEMPO REAL</div>
+        </div>
+        <div style="text-align:center">
+          <div style="font-size:22px">${fl(m.a)}</div>
+          <div style="font-size:11px;font-weight:700;color:#fff;margin-top:2px">${m.a}</div>
+        </div>
+      </div>
+    </div>`;
+  });
+
+  // ── TODAY matches (done) ──────────────────────────────────
+  today.forEach(({m,mi,done})=>{
+    const r = S.real[String(mi)]||{};
+    const hasR = r.h!==undefined && r.a!==undefined;
+    h += `<div onclick="go('partidos')" style="cursor:pointer;background:var(--card);
+      border:1px solid var(--border);border-radius:var(--r);padding:11px 14px;
+      margin-bottom:8px;display:grid;grid-template-columns:1fr auto 1fr;
+      align-items:center;gap:8px;box-shadow:var(--sh)">
+      <div style="text-align:center">
+        <div style="font-size:20px">${fl(m.h)}</div>
+        <div style="font-size:10px;font-weight:700;margin-top:2px">${m.h}</div>
+      </div>
+      <div style="text-align:center">
+        ${hasR
+          ? `<div style="font-family:var(--fd);font-size:28px;color:var(--navy);line-height:1">${r.h} – ${r.a}</div>
+             <div style="font-size:9px;color:var(--green-text);font-weight:700;margin-top:2px">✓ Final</div>`
+          : `<div style="font-size:10px;color:var(--muted)">${matchLocalTime(m.d,m.t)}</div>`
+        }
+        <div style="font-size:9px;color:var(--faint);margin-top:1px">Grupo ${m.g}</div>
+      </div>
+      <div style="text-align:center">
+        <div style="font-size:20px">${fl(m.a)}</div>
+        <div style="font-size:10px;font-weight:700;margin-top:2px">${m.a}</div>
+      </div>
+    </div>`;
+  });
+
+  // ── UPCOMING matches ──────────────────────────────────────
+  if(nextFive.length){
+    // Group by date
+    const byDate = {};
+    nextFive.forEach(({m,mi,kickoff})=>{
+      const dateKey = new Date(kickoff).toLocaleDateString("es",{weekday:"long",day:"numeric",month:"long"});
+      if(!byDate[dateKey]) byDate[dateKey]=[];
+      byDate[dateKey].push({m,mi,kickoff});
+    });
+
+    Object.entries(byDate).forEach(([dateLabel, matches])=>{
+      const isNextDay = matches[0].kickoff - now < 24*60*60*1000;
+      h += `<div style="font-size:10px;font-weight:700;letter-spacing:.06em;
+        text-transform:uppercase;color:var(--muted);
+        margin:${today.length||live.length?'12px':'0'} 0 6px;
+        display:flex;align-items:center;gap:8px">
+        <div style="flex:1;height:1px;background:var(--border)"></div>
+        <span>${dateLabel}</span>
+        <div style="flex:1;height:1px;background:var(--border)"></div>
+      </div>`;
+
+      matches.forEach(({m,mi})=>{
+        const predsCount = S.players.filter((_,pi)=>{
+          const pr=S.pred[`${mi}_${pi}`];
+          return pr && pr.h!==undefined;
+        }).length;
+        const locked = isMatchLocked(m);
+
+        h += `<div onclick="go('partidos')" style="cursor:pointer;background:var(--card);
+          border:1px solid var(--border);border-radius:var(--r);padding:10px 14px;
+          margin-bottom:6px;display:grid;grid-template-columns:1fr auto 1fr;
+          align-items:center;gap:8px;box-shadow:var(--sh)">
+          <div style="text-align:center">
+            <div style="font-size:18px">${fl(m.h)}</div>
+            <div style="font-size:10px;font-weight:700;margin-top:2px;overflow:hidden;
+              text-overflow:ellipsis;white-space:nowrap;max-width:80px;margin:2px auto 0">${m.h}</div>
+          </div>
+          <div style="text-align:center;min-width:80px">
+            <div style="font-size:11px;font-weight:700;color:var(--navy)">${matchLocalTime(m.d,m.t)}</div>
+            <div style="font-size:9px;color:var(--faint);margin-top:2px">Grupo ${m.g} · ${m.n}</div>
+            <div style="font-size:9px;margin-top:3px;color:${locked?'var(--red-text)':'var(--green-text)'}">
+              ${locked?'🔒 Cerrado':'✏️ '+predsCount+'/'+S.players.length+' pred.'}
+            </div>
+          </div>
+          <div style="text-align:center">
+            <div style="font-size:18px">${fl(m.a)}</div>
+            <div style="font-size:10px;font-weight:700;margin-top:2px;overflow:hidden;
+              text-overflow:ellipsis;white-space:nowrap;max-width:80px;margin:2px auto 0">${m.a}</div>
+          </div>
+        </div>`;
+      });
+    });
+  }
+
+  h += `</div>`;
+  return h;
+}
+
 function rTabla(){
   const T=totals(),maxP=Math.max(...T,1);
   const played=Object.keys(S.real).length;
@@ -1005,6 +1200,7 @@ function rTabla(){
     </div>
     <div class="hero-dead">💵 Cuota <strong>${fmtMoney(S.cuota)}</strong> ${S.currency?.code||'USD'} · ${S.players.length} participantes</div>
   </div>
+  \${buildUpcomingWidget()}
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px">
     <div class="sec-title">Clasificación</div>
     <button class="btn btn-ghost btn-sm" onclick="pdfTabla()"><i class="ti ti-file-type-pdf"></i>Ver PDF</button>
@@ -2163,74 +2359,159 @@ function pdfJugador(pi){
 
 // PDF: Planilla por partido
 function pdfPlanilla(){
-  const mi=planMi,m=GM[mi];
-  const today=new Date().toLocaleDateString("es",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
-  // 2 columnas: mitad izquierda, mitad derecha
+  const mi = planMi, m = GM[mi];
+  const r   = S.real[String(mi)] || {};
+  const hasResult = r.h !== undefined && r.a !== undefined;
+  const today = new Date().toLocaleDateString("es",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
+
+  // ── Helpers ──────────────────────────────────────────────
+  function ptStyle(v){
+    if(v===null||v===undefined) return "background:#F5F3EE;color:#9CA3AF";
+    if(v===0)  return "background:#FFF1F2;color:#BE123C";
+    if(v===3)  return "background:#EFF6FF;color:#1D4ED8";
+    if(v===5)  return "background:#F0FDF4;color:#15803D";
+    if(v===7)  return "background:#FFFBEB;color:#92400E";
+    if(v===10) return "background:#FDF2F8;color:#831843";
+    return "background:#F5F3EE;color:#9CA3AF";
+  }
+
+  // ── Build rows — show actual predictions ─────────────────
   const half = Math.ceil(S.players.length / 2);
-  const leftPlayers  = S.players.slice(0, half);
-  const rightPlayers = S.players.slice(half);
-  const rowCount = half;
   let rows = '';
-  for(let r=0; r<rowCount; r++){
-    const lp = leftPlayers[r];
-    const rp = rightPlayers[r];
-    const li = r;
-    const ri = r + half;
-    const leftCell = lp ? `<span class="pdf-av-s" style="background:${AVC[li%AVC.length]}">${ini(lp.name)}</span>${lp.name}` : '';
-    const rightCell = rp ? `<span class="pdf-av-s" style="background:${AVC[ri%AVC.length]}">${ini(rp.name)}</span>${rp.name}` : '';
+  for(let row=0; row<half; row++){
+    const li = row, ri = row + half;
+    const lp = S.players[li], rp = S.players[ri];
+    const lpr = lp ? (S.pred[`${mi}_${li}`]||{}) : {};
+    const rpr = rp ? (S.pred[`${mi}_${ri}`]||{}) : {};
+    const lHas = lp && lpr.h !== undefined && lpr.a !== undefined;
+    const rHas = rp && rpr.h !== undefined && rpr.a !== undefined;
+    // Points if result known
+    const lv = hasResult && lHas ? calcPts(r.h,r.a,lpr.h,lpr.a,false) : null;
+    const rv = hasResult && rHas ? calcPts(r.h,r.a,rpr.h,rpr.a,false) : null;
+
+    // Left cell prediction display
+    const lPred = lp ? (lHas
+      ? `<div style="display:inline-flex;align-items:center;gap:5px">
+          <span style="font-size:15px;font-weight:700;color:#0D1B2A;min-width:18px;text-align:center">${lpr.h}</span>
+          <span style="color:#9CA3AF;font-size:13px">–</span>
+          <span style="font-size:15px;font-weight:700;color:#0D1B2A;min-width:18px;text-align:center">${lpr.a}</span>
+         </div>`
+      : `<span style="color:#D1D5DB;font-size:11px">sin pronóstico</span>`)
+      : '';
+
+    // Right cell prediction display
+    const rPred = rp ? (rHas
+      ? `<div style="display:inline-flex;align-items:center;gap:5px">
+          <span style="font-size:15px;font-weight:700;color:#0D1B2A;min-width:18px;text-align:center">${rpr.h}</span>
+          <span style="color:#9CA3AF;font-size:13px">–</span>
+          <span style="font-size:15px;font-weight:700;color:#0D1B2A;min-width:18px;text-align:center">${rpr.a}</span>
+         </div>`
+      : `<span style="color:#D1D5DB;font-size:11px">sin pronóstico</span>`)
+      : '';
+
+    // Points badges
+    const lPts = hasResult && lp
+      ? `<span style="${ptStyle(lv)};padding:2px 7px;border-radius:4px;font-size:11px;font-weight:700">${lv!==null?lv+'p':'–'}</span>`
+      : '';
+    const rPts = hasResult && rp
+      ? `<span style="${ptStyle(rv)};padding:2px 7px;border-radius:4px;font-size:11px;font-weight:700">${rv!==null?rv+'p':'–'}</span>`
+      : '';
+
+    const lAv = lp ? `<span class="pdf-av-s" style="background:${AVC[li%AVC.length]}">${ini(lp.name)}</span>` : '';
+    const rAv = rp ? `<span class="pdf-av-s" style="background:${AVC[ri%AVC.length]}">${ini(rp.name)}</span>` : '';
+
     rows += `<tr>
-      <td style="width:30px;font-size:10px;color:#888;text-align:center">${lp?li+1:''}</td>
-      <td>${leftCell}</td>
-      <td style="width:90px;text-align:center"><div style="display:inline-flex;align-items:center;gap:5px">
-        <div class="pdf-inp-box"></div><span style="color:#9CA3AF;font-size:13px">–</span><div class="pdf-inp-box"></div>
-      </div></td>
-      <td style="width:12px;background:#E5E2DA"></td>
-      <td style="width:30px;font-size:10px;color:#888;text-align:center">${rp?ri+1:''}</td>
-      <td>${rightCell}</td>
-      <td style="width:90px;text-align:center">${rp?`<div style="display:inline-flex;align-items:center;gap:5px">
-        <div class="pdf-inp-box"></div><span style="color:#9CA3AF;font-size:13px">–</span><div class="pdf-inp-box"></div>
-      </div>`:''}</td>
+      <td style="width:28px;font-size:10px;color:#888;text-align:center">${lp?li+1:''}</td>
+      <td style="font-size:11px">${lAv}${lp?lp.name:''}</td>
+      <td style="width:90px;text-align:center">${lPred}</td>
+      <td style="width:40px;text-align:center">${lPts}</td>
+      <td style="width:10px;background:#E5E2DA;padding:0"></td>
+      <td style="width:28px;font-size:10px;color:#888;text-align:center">${rp?ri+1:''}</td>
+      <td style="font-size:11px">${rAv}${rp?rp.name:''}</td>
+      <td style="width:90px;text-align:center">${rPred}</td>
+      <td style="width:40px;text-align:center">${rPts}</td>
     </tr>`;
   }
-  const jsonData=JSON.stringify({version:"polla2026",matchIndex:mi,matchNum:m.n,match:{num:m.n,date:m.d,time:m.t,home:m.h,away:m.a,venue:m.v,city:m.city,group:m.g},predictions:S.players.map((_,pi)=>({playerIndex:pi,player:S.players[pi].name,h:null,a:null}))},null,2);
-  const page=`<div class="pdf-pg">
-    <div class="ph"><div><div class="ph-ey">FIFA World Cup 2026 · Planilla de pronósticos</div><div class="ph-title">Partido ${m.n} · Grupo ${m.g}</div><div class="ph-sub">${today}</div></div>
-      <div class="ph-right"><div class="ph-date">${m.d} · ${m.t} EST</div><div class="ph-venue">${m.v} · ${m.city}</div></div></div>
+
+  // ── Count stats ───────────────────────────────────────────
+  const totalWithPred = S.players.filter((_,pi)=>{
+    const pr=S.pred[`${mi}_${pi}`];
+    return pr && pr.h!==undefined && pr.a!==undefined;
+  }).length;
+
+  const resultRow = hasResult
+    ? `<div style="background:#0D1B2A;border-radius:8px;padding:10px 16px;margin-bottom:14px;
+        display:flex;align-items:center;justify-content:center;gap:16px">
+        <span style="font-size:13px;font-weight:700;color:#fff">${m.h}</span>
+        <span style="font-family:'Bebas Neue',sans-serif;font-size:28px;color:#C9A843">${r.h} – ${r.a}</span>
+        <span style="font-size:13px;font-weight:700;color:#fff">${m.a}</span>
+        <span style="background:#16A34A;color:#fff;font-size:10px;font-weight:700;
+          padding:3px 9px;border-radius:12px;margin-left:8px">✓ Resultado oficial</span>
+      </div>`
+    : `<div style="background:#FFF8E1;border:1px solid #FDE68A;border-radius:8px;
+        padding:8px 14px;margin-bottom:14px;font-size:11px;color:#92400E;text-align:center">
+        ⏳ Partido aún no jugado — ${totalWithPred} de ${S.players.length} pronósticos ingresados
+      </div>`;
+
+  const page = `<div class="pdf-pg">
+    <div class="ph">
+      <div>
+        <div class="ph-ey">FIFA World Cup 2026 · Polla Mundial · Planilla oficial</div>
+        <div class="ph-title">Partido ${m.n} · Grupo ${m.g}</div>
+        <div class="ph-sub">${fl(m.h)} ${m.h} vs ${m.a} ${fl(m.a)}</div>
+      </div>
+      <div class="ph-right">
+        <div class="ph-date">${m.d} · ${m.t} EST</div>
+        <div class="ph-venue">${m.v} · ${m.city}</div>
+      </div>
+    </div>
+
     <div class="pdf-mhero">
-      <div class="pdf-mh-team"><span class="pdf-mh-flag">${fl(m.h)}</span><div class="pdf-mh-name">${m.h}</div><div class="pdf-mh-grp">Grupo ${m.g} · Local</div></div>
-      <div class="pdf-mh-ctr"><span class="pdf-mh-vs">VS</span><div class="pdf-mh-time">${m.d} · ${m.t} EST</div></div>
-      <div class="pdf-mh-team"><span class="pdf-mh-flag">${fl(m.a)}</span><div class="pdf-mh-name">${m.a}</div><div class="pdf-mh-grp">Grupo ${m.g} · Visitante</div></div>
+      <div class="pdf-mh-team">
+        <span class="pdf-mh-flag">${fl(m.h)}</span>
+        <div class="pdf-mh-name">${m.h}</div>
+        <div class="pdf-mh-grp">Grupo ${m.g} · Local</div>
+      </div>
+      <div class="pdf-mh-ctr">
+        <span class="pdf-mh-vs">${hasResult ? r.h+' – '+r.a : 'VS'}</span>
+        <div class="pdf-mh-time">${m.d} · ${m.t} EST</div>
+      </div>
+      <div class="pdf-mh-team">
+        <span class="pdf-mh-flag">${fl(m.a)}</span>
+        <div class="pdf-mh-name">${m.a}</div>
+        <div class="pdf-mh-grp">Grupo ${m.g} · Visitante</div>
+      </div>
     </div>
-    <div class="pdf-stat-row">
-      <div class="pdf-stat-pill"><div class="pdf-stat-val" style="color:#1D4ED8">3 pts</div><div class="pdf-stat-lbl">Resultado correcto</div></div>
-      <div class="pdf-stat-pill"><div class="pdf-stat-val" style="color:#15803D">5 pts</div><div class="pdf-stat-lbl">Marcador exacto</div></div>
-      <div class="pdf-stat-pill" style="background:#FFFBEB"><div class="pdf-stat-val" style="color:#92400E">7 pts</div><div class="pdf-stat-lbl">+Penales KO</div></div>
-      <div class="pdf-stat-pill" style="background:#FDF2F8"><div class="pdf-stat-val" style="color:#831843">10 pts</div><div class="pdf-stat-lbl">Exacto+Penales</div></div>
-    </div>
-    <div class="pdf-instr"><strong>Instrucciones:</strong> Escribe el marcador que predices para este partido. Envíasela al administrador <strong>antes del inicio del partido</strong>. Los pronósticos enviados después del pitazo inicial no son válidos.</div>
-    <table class="pdf-tbl" style="table-layout:fixed;width:100%"><thead><tr>
-      <th style="width:26px;padding:8px 4px">#</th>
-      <th style="text-align:left;padding-left:8px">Jugador</th>
-      <th style="width:94px">${m.h} – ${m.a}</th>
-      <th style="width:10px;background:#1E3352;padding:0;border:none"></th>
-      <th style="width:26px;padding:8px 4px">#</th>
-      <th style="text-align:left;padding-left:8px">Jugador</th>
-      <th style="width:94px">${m.h} – ${m.a}</th>
-    </tr></thead><tbody>${rows}</tbody></table>
+
+    ${resultRow}
+
+    <table class="pdf-tbl" style="table-layout:fixed;width:100%">
+      <thead><tr>
+        <th style="width:28px;padding:8px 4px">#</th>
+        <th style="text-align:left;padding-left:6px">Jugador</th>
+        <th style="width:90px">${m.h} – ${m.a}</th>
+        ${hasResult ? '<th style="width:40px">Pts</th>' : '<th style="width:40px"></th>'}
+        <th style="width:10px;background:#1E3352;padding:0;border:none"></th>
+        <th style="width:28px;padding:8px 4px">#</th>
+        <th style="text-align:left;padding-left:6px">Jugador</th>
+        <th style="width:90px">${m.h} – ${m.a}</th>
+        ${hasResult ? '<th style="width:40px">Pts</th>' : '<th style="width:40px"></th>'}
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+
     <div class="pdf-footer">
-      <div class="pdf-footer-note">Admin: llena PTS después del partido e ingresa el JSON en la pestaña Planillas. Guarda esta hoja como respaldo.</div>
+      <div class="pdf-footer-note">
+        Generado el ${today} · ${totalWithPred} de ${S.players.length} pronósticos ingresados
+        ${hasResult ? '· Puntos calculados automáticamente' : ''}
+      </div>
       <div class="pdf-footer-brand">⚽ POLLA MUNDIAL 2026</div>
     </div>
-  </div>
-  <div class="pdf-pg">
-    <div class="ph"><div><div class="ph-ey">JSON de pronósticos · Partido ${m.n}</div><div class="ph-title">Plantilla de carga</div><div class="ph-sub">Copia este JSON y pégalo en la app (Admin → Planillas → Cargar pronósticos)</div></div></div>
-    <div style="background:#F9F8F5;border:1px solid #E5E2DA;border-radius:8px;padding:16px;font-family:monospace;font-size:11px;line-height:1.7;white-space:pre-wrap;word-break:break-all;flex:1">${jsonData.replace(/</g,"&lt;").replace(/>/g,"&gt;")}</div>
-    <div class="pdf-footer"><div class="pdf-footer-note">Pega este JSON en Planillas → Cargar pronósticos. Reemplaza null con los marcadores de cada jugador antes de cargar.</div><div class="pdf-footer-brand">⚽ POLLA MUNDIAL 2026</div></div>
   </div>`;
-  pdfOpen(page,`Planilla ${m.n} · ${m.h} vs ${m.a}`);
+
+  pdfOpen(page, `Planilla ${m.n} · ${m.h} vs ${m.a}`);
 }
 
-// PDF: Bracket eliminatorio
 function pdfBracket(){
   const today=new Date().toLocaleDateString("es",{day:"numeric",month:"long",year:"numeric"});
   const allKO=KO.flatMap(({r,ms})=>ms.map(m=>({...m,roundName:KO_LBL[r]})));
@@ -2732,6 +3013,224 @@ function isMatchLocked(m){
 }
 
 
+
+
+
+// Helper: renders next N matches as opaque "locked" cards
+function buildUpcomingLocked(matches){
+  if(!matches.length) return '';
+  let h = `
+  <div class="phase-sep" style="margin-top:20px">
+    <div class="phase-line"></div>
+    <div class="phase-badge" style="color:var(--faint);border-color:var(--border)">
+      🔒 Próximos ${matches.length} partidos
+    </div>
+    <div class="phase-line"></div>
+  </div>`;
+
+  matches.forEach(({m,mi})=>{
+    const predsCount = S.players.filter((_,pi)=>{
+      const pr=S.pred[`${mi}_${pi}`];
+      return pr && pr.h!==undefined;
+    }).length;
+
+    h += `<div style="background:var(--card);border:1px solid var(--border);
+      border-radius:var(--r);margin-bottom:8px;overflow:hidden;
+      opacity:0.42;filter:grayscale(30%);pointer-events:none">
+
+      <!-- Header -->
+      <div style="display:flex;align-items:center;gap:7px;padding:7px 13px;
+        border-bottom:1px solid var(--border);background:var(--card2)">
+        <span style="font-size:10px;font-weight:700;color:var(--faint);
+          background:var(--off);border:1px solid var(--border);
+          padding:2px 7px;border-radius:4px">${m.n}</span>
+        <span style="font-size:10px;color:var(--faint)">${m.d} · ${matchLocalTime(m.d,m.t)}</span>
+        <span style="font-size:9px;color:var(--faint);margin-left:auto">
+          ${predsCount}/${S.players.length} pred · Grupo ${m.g}
+        </span>
+      </div>
+
+      <!-- Teams -->
+      <div style="display:grid;grid-template-columns:1fr auto 1fr;
+        align-items:center;gap:8px;padding:14px 16px">
+        <div style="display:flex;flex-direction:column-reverse;align-items:center;gap:3px">
+          <div style="font-size:11px;font-weight:600;color:var(--faint);
+            max-width:80px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m.h}</div>
+          <div style="font-size:24px;line-height:1">${fl(m.h)}</div>
+        </div>
+        <div style="text-align:center">
+          <div style="font-family:var(--fd);font-size:28px;color:var(--border);line-height:1">? – ?</div>
+          <div style="font-size:9px;color:var(--faint);letter-spacing:.05em;margin-top:2px">POR JUGAR</div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:3px">
+          <div style="font-size:24px;line-height:1">${fl(m.a)}</div>
+          <div style="font-size:11px;font-weight:600;color:var(--faint);
+            max-width:80px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m.a}</div>
+        </div>
+      </div>
+
+    </div>`;
+  });
+  return h;
+}
+
+
+// ════════════════════════════════════════════════════════════
+//  MUNDIAL — Resultados de todos los partidos jugados
+// ════════════════════════════════════════════════════════════
+function rMundial(){
+  const el = document.getElementById("p-mundial");
+  if(!el) return;
+
+  const played = GM.map((m,mi)=>({m,mi})).filter(({mi})=>{
+    const r = S.real[String(mi)];
+    return r && r.h!==undefined && r.a!==undefined;
+  });
+
+  // ── Next 5 upcoming (shown as locked/opaque) ───────────────
+  const upcoming5 = GM.map((m,mi)=>({m,mi})).filter(({mi})=>{
+    const r = S.real[String(mi)];
+    return !r || r.h===undefined;
+  }).slice(0,5);
+
+  if(!played.length){
+    let uph = `
+    <div class="hero" style="margin-bottom:16px">
+      <div class="hero-ey">FIFA World Cup 2026</div>
+      <div class="hero-t">CÓMO VA EL MUNDIAL</div>
+      <div class="hero-s">Resultados oficiales · Los partidos aparecen al jugarse</div>
+    </div>
+    <div class="empty" style="padding:24px 20px 12px">
+      <div style="font-size:32px;margin-bottom:8px">⚽</div>
+      <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px">Aún no hay resultados</div>
+      <div style="font-size:12px;color:var(--muted)">Los partidos aparecerán aquí una vez que el admin ingrese el resultado.</div>
+    </div>`;
+    uph += buildUpcomingLocked(upcoming5);
+    el.innerHTML = uph;
+    return;
+  }
+
+  // Group by phase (group letter)
+  const groups = {};
+  played.forEach(({m,mi})=>{
+    const g = m.g;
+    if(!groups[g]) groups[g]=[];
+    groups[g].push({m,mi});
+  });
+
+  let h = `
+  <div class="hero" style="margin-bottom:16px">
+    <div class="hero-ey">FIFA World Cup 2026</div>
+    <div class="hero-t">CÓMO VA EL MUNDIAL</div>
+    <div class="hero-s">${played.length} partido${played.length!==1?"s":""} jugado${played.length!==1?"s":""} · ${72-played.length} restantes en grupos</div>
+  </div>`;
+
+  // Sort groups alphabetically
+  Object.keys(groups).sort().forEach(g=>{
+    h += `<div class="phase-sep">
+      <div class="phase-line"></div>
+      <div class="phase-badge">Grupo ${g}</div>
+      <div class="phase-line"></div>
+    </div>`;
+
+    groups[g].forEach(({m,mi})=>{
+      const r = S.real[String(mi)];
+      const homeWin = r.h > r.a;
+      const awayWin = r.a > r.h;
+      const draw    = r.h === r.a;
+
+      h += `<div style="background:var(--card);border:1px solid var(--border);
+        border-radius:var(--r);margin-bottom:8px;overflow:hidden;box-shadow:var(--sh)">
+
+        <!-- Match header -->
+        <div style="display:flex;align-items:center;gap:7px;padding:7px 13px;
+          border-bottom:1px solid var(--border);background:var(--card2)">
+          <span style="font-size:10px;font-weight:700;color:var(--blue-text);
+            background:var(--blue-bg);border:1px solid var(--blue-border);
+            padding:2px 7px;border-radius:4px">${m.n}</span>
+          <span style="font-size:10px;color:var(--muted)">${m.d}</span>
+          <span style="font-size:9px;font-weight:700;color:var(--green-text);
+            background:var(--green-bg);border:1px solid var(--green-border);
+            padding:2px 6px;border-radius:4px;margin-left:auto">✓ Final</span>
+        </div>
+
+        <!-- Scoreline -->
+        <div style="display:grid;grid-template-columns:1fr auto 1fr;
+          align-items:center;gap:8px;padding:14px 16px">
+
+          <!-- Home team -->
+          <div style="display:flex;flex-direction:column-reverse;align-items:center;
+            gap:4px;text-align:center">
+            <div style="font-size:12px;font-weight:${homeWin?'900':'600'};
+              color:${homeWin?'var(--navy)':'var(--text)'};max-width:90px;
+              white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m.h}</div>
+            <div style="font-size:28px;line-height:1">${fl(m.h)}</div>
+          </div>
+
+          <!-- Score -->
+          <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
+            <div style="display:flex;align-items:center;gap:8px">
+              <!-- Home score + star if winner -->
+              <div style="position:relative;text-align:center;min-width:28px">
+                ${homeWin?`<span style="position:absolute;top:-14px;left:50%;transform:translateX(-50%);
+                  font-size:13px;line-height:1">⭐</span>`:''}
+                <div style="font-family:var(--fd);font-size:40px;line-height:1;
+                  color:${homeWin?'var(--green)':draw?'var(--navy)':'var(--faint)'}">${r.h}</div>
+              </div>
+              <div style="font-size:22px;font-weight:700;color:var(--border)">–</div>
+              <!-- Away score + star if winner -->
+              <div style="position:relative;text-align:center;min-width:28px">
+                ${awayWin?`<span style="position:absolute;top:-14px;left:50%;transform:translateX(-50%);
+                  font-size:13px;line-height:1">⭐</span>`:''}
+                <div style="font-family:var(--fd);font-size:40px;line-height:1;
+                  color:${awayWin?'var(--green)':draw?'var(--navy)':'var(--faint)'}">${r.a}</div>
+              </div>
+            </div>
+            ${draw?`<div style="font-size:9px;font-weight:700;color:var(--muted);
+              letter-spacing:.06em;text-transform:uppercase">Empate</div>`:''}
+          </div>
+
+          <!-- Away team -->
+          <div style="display:flex;flex-direction:column;align-items:center;
+            gap:4px;text-align:center">
+            <div style="font-size:28px;line-height:1">${fl(m.a)}</div>
+            <div style="font-size:12px;font-weight:${awayWin?'900':'600'};
+              color:${awayWin?'var(--navy)':'var(--text)'};max-width:90px;
+              white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m.a}</div>
+          </div>
+
+        </div>
+
+        <!-- Pronósticos resumen -->
+        <div style="background:var(--card2);border-top:1px solid var(--border);
+          padding:8px 13px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+          <span style="font-size:9px;font-weight:700;letter-spacing:.07em;
+            color:var(--muted);text-transform:uppercase">Polla:</span>
+          ${S.players.map((pl,pi)=>{
+            const pr = S.pred[`${mi}_${pi}`];
+            if(!pr||pr.h===undefined) return `<span style="font-size:9px;color:var(--faint)">${pl.name.split(" ")[0]} ${pl.name.split(" ")[1]?pl.name.split(" ")[1][0]+".":""} –</span>`;
+            const v = calcPts(r.h,r.a,pr.h,pr.a,false);
+            const bg = v===5?"var(--green-bg)":v===3?"var(--blue-bg)":v===0?"var(--red-bg)":"var(--off)";
+            const col = v===5?"var(--green-text)":v===3?"var(--blue-text)":v===0?"var(--red-text)":"var(--faint)";
+            const border = v===5?"var(--green-border)":v===3?"var(--blue-border)":v===0?"var(--red-border)":"var(--border)";
+            return `<span style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px;
+              background:${bg};color:${col};border:1px solid ${border};white-space:nowrap">
+              ${pl.name.split(" ")[0]+" "+(pl.name.split(" ")[1]?pl.name.split(" ")[1][0]+".":"")} ${pr.h}:${pr.a} ${v!==null?'('+v+'p)':''}
+            </span>`;
+          }).join("")}
+        </div>
+
+      </div>`;
+    });
+  });
+
+  // ── Próximos 5 (al final, opacos) ──────────────────────────
+  if(upcoming5.length){
+    h += buildUpcomingLocked(upcoming5);
+  }
+
+  el.innerHTML = h;
+}
 
 
 // INIT
