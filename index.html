@@ -383,12 +383,22 @@ body{padding-bottom:calc(72px + var(--safe-bot))}
 }
 
 </style>
+
+<!-- Firebase SDK -->
+<script type="module">
+  // We use the compat version so no imports/bundler needed
+</script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
 </head>
 <body>
 
 <nav class="topnav">
   <div class="topnav-inner">
-    <div><div class="brand-name">⚽ MUNDIAL 2026</div><div class="brand-sub">USA · CAN · MEX</div></div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <div><div class="brand-name">⚽ MUNDIAL 2026</div><div class="brand-sub">USA · CAN · MEX</div></div>
+      <div id="fb-status-dot" title="Conectando..." style="width:8px;height:8px;border-radius:50%;background:#F0C866;flex-shrink:0;margin-top:2px;transition:background .3s"></div>
+    </div>
     <div class="nav-scr">
       <button class="nb" onclick="go('tabla')">Tabla</button>
       <button class="nb" onclick="go('partidos')">Partidos</button>
@@ -398,6 +408,7 @@ body{padding-bottom:calc(72px + var(--safe-bot))}
       <button class="nb" onclick="go('planilla')">Planillas</button>
       <button class="nb on" onclick="go('info')">Premios</button>
       <button class="nb" onclick="go('buscar')">Buscar</button>
+      <button class="nb" onclick="go('mipred')">✏️ Mi pronóstico</button>
       <button class="nb" onclick="go('admin')">Admin<span class="adot"></span></button>
     </div>
   </div>
@@ -413,6 +424,7 @@ body{padding-bottom:calc(72px + var(--safe-bot))}
   <div id="p-info"     class="panel on"></div>
   <div id="p-admin"    class="panel"></div>
   <div id="p-buscar"   class="panel"></div>
+  <div id="p-mipred"   class="panel"></div>
 </div>
 
 <nav class="botnav" id="botnav">
@@ -421,6 +433,7 @@ body{padding-bottom:calc(72px + var(--safe-bot))}
   <button class="bn-btn" onclick="go('bracket')"><span class="bn-emoji">🗂️</span><span class="bn-label">Bracket</span></button>
   <button class="bn-btn" onclick="go('buscar')"><span class="bn-emoji">🔍</span><span class="bn-label">Buscar</span></button>
   <button class="bn-btn" onclick="go('planilla')"><span class="bn-emoji">📋</span><span class="bn-label">Planillas</span></button>
+  <button class="bn-btn" onclick="go('mipred')"><span class="bn-emoji">✏️</span><span class="bn-label">Mi pred</span></button>
   <button class="bn-btn" onclick="go('admin')"><span class="bn-emoji">⚙️</span><span class="bn-label">Admin</span></button>
 </nav>
 
@@ -552,40 +565,127 @@ const KO=[
 ];
 const KO_LBL={R32:"Ronda de 32",R16:"Octavos de final",QF:"Cuartos de final",SF:"Semifinales","3P":"3er y 4to lugar",FIN:"Gran Final"};
 
-const DEFAULT_PLAYERS=[
-{name:"Alvaro Arias",paid:true},
-{name:"Andres Perilla",paid:true},
-{name:"Cesar Andres Tara",paid:false},
-{name:"Daniel Trejo",paid:false},
-{name:"Eduardo Peñuela",paid:false},
-{name:"Edwin Rodríguez",paid:false},
-{name:"Javier Rodriguez",paid:false},
-{name:"Jhonatan Agudelo",paid:true},
-{name:"Junior Hurtado",paid:true},
-{name:"Nacho Carrera",paid:true},
-{name:"Samuel Peñuela",paid:true},
-{name:"Samuel Rodriguez",paid:false},
-{name:"Sergio Castellanos",paid:true}
-];
+const DEFAULT_PLAYERS=[{"name": "Alvaro Arias", "paid": true}, {"name": "Andres Perilla", "paid": true}, {"name": "Cesar Andres Tara", "paid": false}, {"name": "Daniel Trejo", "paid": false}, {"name": "Eduardo Peñuela", "paid": false}, {"name": "Edwin Rodríguez", "paid": false}, {"name": "Javier Rodriguez", "paid": false}, {"name": "Jhonatan Agudelo", "paid": true}, {"name": "Jhony Moreno", "paid": false}, {"name": "Junior Hurtado", "paid": true}, {"name": "Nacho Carrera", "paid": true}, {"name": "Samuel Peñuela", "paid": true}, {"name": "Samuel Rodriguez", "paid": false}, {"name": "Sergio Castellanos", "paid": true}];
 
 let S={players:[...DEFAULT_PLAYERS.map(p=>({...p}))],real:{},pred:{},ko:{},koPred:{},deadline:"2026-06-10",cuota:100,adminPin:"2026",adminName:"Sergio Castellanos",currency:{code:"USD",symbol:"$",locale:"en-US"},pendingRequests:[]};
 let isAdmin=false;
 
-function save(){try{localStorage.setItem("pm26v4",JSON.stringify(S));}catch(e){}}
-function load(){
+// ════════════════════════════════════════════════════════════
+//  FIREBASE CONFIG & SYNC
+// ════════════════════════════════════════════════════════════
+const FB_CONFIG = {
+  apiKey: "AIzaSyDGLPx7E-ocbPVmu3fjaY7QriW68vlcVdo",
+  authDomain: "polla-mundial-2026-5fbb0.firebaseapp.com",
+  databaseURL: "https://polla-mundial-2026-5fbb0-default-rtdb.firebaseio.com",
+  projectId: "polla-mundial-2026-5fbb0",
+  storageBucket: "polla-mundial-2026-5fbb0.firebasestorage.app",
+  messagingSenderId: "190058355474",
+  appId: "1:190058355474:web:3ad6dea3af8473b341b1cb"
+};
+let fbApp, fbDb, fbRef;
+let fbConnected = false;
+let fbInitialized = false;
+
+function fbInit(){
   try{
-    const d=localStorage.getItem("pm26v4");
+    fbApp = firebase.initializeApp(FB_CONFIG);
+    fbDb  = firebase.database();
+    fbRef = fbDb.ref("polla2026");
+    fbInitialized = true;
+
+    // Listen for real-time changes from Firebase
+    fbRef.on("value", snap => {
+      const data = snap.val();
+      if(data){
+        // Merge incoming data — keep local structure intact
+        S.players        = data.players        || S.players;
+        S.real           = data.real           || {};
+        S.pred           = data.pred           || {};
+        S.ko             = data.ko             || {};
+        S.koPred         = data.koPred         || {};
+        S.deadline       = data.deadline       || S.deadline;
+        S.cuota          = data.cuota          || S.cuota;
+        S.adminName      = data.adminName      || S.adminName;
+        S.currency       = data.currency       || S.currency;
+        S.pendingRequests= data.pendingRequests|| [];
+        // Keep local pin — never sync to Firebase for security
+        // Re-render active panel
+        const active = document.querySelector(".panel.on");
+        if(active){
+          const tab = active.id.replace("p-","");
+          RENDERS[tab]?.();
+        }
+      }
+      fbConnected = true;
+      updFbStatus(true);
+    });
+
+    fbDb.ref(".info/connected").on("value", snap => {
+      fbConnected = !!snap.val();
+      updFbStatus(fbConnected);
+    });
+
+  }catch(e){
+    console.warn("Firebase init error:", e);
+    fbConnected = false;
+    updFbStatus(false);
+  }
+}
+
+function updFbStatus(connected){
+  const el = document.getElementById("fb-status-dot");
+  if(!el) return;
+  el.style.background = connected ? "#16A34A" : "#E8365D";
+  el.title = connected ? "Conectado en tiempo real" : "Sin conexión — datos locales";
+}
+
+function save(){
+  // Always save to localStorage as backup
+  try{ localStorage.setItem("pm26v4", JSON.stringify(S)); }catch(e){}
+  // Save to Firebase (exclude adminPin for security)
+  if(fbInitialized && fbRef){
+    const toSave = {
+      players:         S.players,
+      real:            S.real,
+      pred:            S.pred,
+      ko:              S.ko,
+      koPred:          S.koPred,
+      deadline:        S.deadline,
+      cuota:           S.cuota,
+      adminName:       S.adminName,
+      currency:        S.currency,
+      pendingRequests: S.pendingRequests||[],
+    };
+    fbRef.set(toSave).catch(e=>console.warn("Firebase save error:",e));
+  }
+}
+
+function load(){
+  // Load from localStorage while Firebase connects
+  try{
+    const d = localStorage.getItem("pm26v4");
     if(d){
-      const saved=JSON.parse(d);
-      // If saved data has players, use them; otherwise keep DEFAULT_PLAYERS
-      S=Object.assign(S,saved);
+      const saved = JSON.parse(d);
+      S = Object.assign(S, saved);
     }
   }catch(e){}
 }
 load();
+// Firebase connects asynchronously — data syncs via listener above
+fbInit();
 
-// If this is opened fresh (no saved data at all), nothing to do.
-// User must do Admin > Resetear todo to clear old localStorage data.
+// Restore which player this device belongs to
+try{
+  const saved = localStorage.getItem("pm26_mypi");
+  if(saved){
+    const [idx, name] = saved.split("|");
+    const pi = parseInt(idx);
+    if(!isNaN(pi) && pi < S.players.length && S.players[pi]?.name === name){
+      myPlayerIndex = pi;
+      myPlayerName  = name;
+    }
+  }
+}catch(e){}
 
 // SCORING — Grupos: 3=resultado,5=exacto | KO: 3/5 normal + 7=empate+ganadorPen / 10=exacto+ganadorPen
 function calcPts(rh,ra,ph,pa,isKO,rPenW,pPenW){
@@ -635,7 +735,7 @@ function totals(){
 }
 
 // NAV
-const RENDERS={tabla:rTabla,partidos:rPartidos,bracket:rBracket,jugador:rJugador,registro:rRegistro,planilla:rPlanilla,buscar:rBuscar,info:rInfo,admin:rAdmin};
+const RENDERS={tabla:rTabla,partidos:rPartidos,bracket:rBracket,jugador:rJugador,registro:rRegistro,planilla:rPlanilla,buscar:rBuscar,mipred:rMiPred,info:rInfo,admin:rAdmin};
 function go(tab){
   if(tab==="admin"&&!isAdmin){showLock(tab);return;}
   // Reset buscar detail view when leaving
@@ -1715,8 +1815,8 @@ function applyNewPolla(){
 }
 function hardReset(){
   const cur=S.currency,pin=S.adminPin,an=S.adminName,dl=S.deadline,cu=S.cuota;
-  const officialPlayers=[{"name": "Alvaro Arias", "paid": true}, {"name": "Andres Perilla", "paid": true}, {"name": "Cesar Andres Tara", "paid": false}, {"name": "Daniel Trejo", "paid": false}, {"name": "Eduardo Peñuela", "paid": false}, {"name": "Edwin Rodríguez", "paid": false}, {"name": "Javier Rodriguez", "paid": false}, {"name": "Jhonatan Agudelo", "paid": true}, {"name": "Junior Hurtado", "paid": true}, {"name": "Nacho Carrera", "paid": true}, {"name": "Samuel Peñuela", "paid": true}, {"name": "Samuel Rodriguez", "paid": false}, {"name": "Sergio Castellanos", "paid": true}];
-  const officialPreds={"0_0": {"h": 3, "a": 0}, "1_0": {"h": 1, "a": 2}, "0_4": {"h": 2, "a": 0}, "1_4": {"h": 1, "a": 2}, "0_12": {"h": 3, "a": 1}, "1_12": {"h": 2, "a": 1}, "0_1": {"h": 2, "a": 0}, "1_1": {"h": 1, "a": 1}, "0_3": {"h": 2, "a": 0}, "1_3": {"h": 2, "a": 1}};
+  const officialPlayers=[{"name": "Alvaro Arias", "paid": true}, {"name": "Andres Perilla", "paid": true}, {"name": "Cesar Andres Tara", "paid": false}, {"name": "Daniel Trejo", "paid": false}, {"name": "Eduardo Peñuela", "paid": false}, {"name": "Edwin Rodríguez", "paid": false}, {"name": "Javier Rodriguez", "paid": false}, {"name": "Jhonatan Agudelo", "paid": true}, {"name": "Jhony Moreno", "paid": false}, {"name": "Junior Hurtado", "paid": true}, {"name": "Nacho Carrera", "paid": true}, {"name": "Samuel Peñuela", "paid": true}, {"name": "Samuel Rodriguez", "paid": false}, {"name": "Sergio Castellanos", "paid": true}];
+  const officialPreds={"0_0": {"h": 3, "a": 0}, "0_1": {"h": 2, "a": 0}, "0_2": {"h": 3, "a": 0}, "0_3": {"h": 2, "a": 0}, "0_4": {"h": 2, "a": 0}, "0_5": {"h": 3, "a": 1}, "0_6": {"h": 2, "a": 0}, "0_8": {"h": 2, "a": 1}, "0_9": {"h": 2, "a": 0}, "0_10": {"h": 3, "a": 1}, "0_11": {"h": 2, "a": 0}, "0_12": {"h": 0, "a": 2}, "0_13": {"h": 3, "a": 1}, "1_0": {"h": 1, "a": 2}, "1_1": {"h": 1, "a": 1}, "1_2": {"h": 0, "a": 1}, "1_3": {"h": 2, "a": 1}, "1_4": {"h": 1, "a": 2}, "1_5": {"h": 1, "a": 1}, "1_6": {"h": 0, "a": 2}, "1_8": {"h": 1, "a": 1}, "1_9": {"h": 1, "a": 1}, "1_10": {"h": 1, "a": 2}, "1_11": {"h": 1, "a": 0}, "1_12": {"h": 2, "a": 1}, "1_13": {"h": 2, "a": 1}};
   S={
     players:officialPlayers,
     real:{},pred:officialPreds,ko:{},koPred:{},pendingRequests:[],
@@ -2187,6 +2287,211 @@ function setBFilt(g){
     else if(g==="pending") card.style.display=card.dataset.pending==="true"?"":"none";
     else card.style.display=card.dataset.group===g?"":"none";
   });
+}
+
+
+
+// ════════════════════════════════════════════════════════════
+//  MI PRONÓSTICO — cada jugador ingresa sus propios datos
+// ════════════════════════════════════════════════════════════
+let myPlayerIndex = null; // which player this device is
+let myPlayerName  = null;
+
+function rMiPred(){
+  const el = document.getElementById("p-mipred");
+  if(!el) return;
+  // If player not selected yet, show picker
+  if(myPlayerIndex === null){
+    rMiPredPicker(el);
+  } else {
+    rMiPredForm(el);
+  }
+}
+
+function rMiPredPicker(el){
+  el.innerHTML = `
+  <div class="hero" style="margin-bottom:16px">
+    <div class="hero-ey">FIFA World Cup 2026</div>
+    <div class="hero-t">MIS PRONÓSTICOS</div>
+    <div class="hero-s">Selecciona tu nombre para ingresar tus predicciones</div>
+  </div>
+  <div class="card">
+    <div class="card-title"><i class="ti ti-user"></i>¿Quién eres?</div>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:14px">
+      Toca tu nombre. Solo puedes cambiar pronósticos <strong>antes de que empiece cada partido</strong>.
+    </p>
+    <div style="display:flex;flex-direction:column;gap:7px">
+      ${S.players.map((p,i)=>`
+        <button onclick="selectMyPlayer(${i})"
+          style="display:flex;align-items:center;gap:12px;padding:12px 14px;
+          border-radius:var(--r);border:1.5px solid var(--border);background:var(--card);
+          cursor:pointer;text-align:left;transition:all .15s;font-family:var(--fb)"
+          onmouseover="this.style.borderColor='var(--gold)'"
+          onmouseout="this.style.borderColor='var(--border)'">
+          <div style="width:38px;height:38px;border-radius:50%;background:${AVC[i%AVC.length]};
+            display:flex;align-items:center;justify-content:center;font-family:var(--fd);
+            font-size:15px;color:#fff;flex-shrink:0">${ini(p.name)}</div>
+          <div style="flex:1">
+            <div style="font-size:14px;font-weight:700;color:var(--text)">${p.name}</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:2px">
+              ${p.paid
+                ? '<span style="color:var(--green-text)">✓ Pago confirmado</span>'
+                : '<span style="color:var(--red-text)">⚠ Pago pendiente</span>'}
+            </div>
+          </div>
+          <i class="ti ti-chevron-right" style="color:var(--faint);font-size:18px"></i>
+        </button>`).join("")}
+    </div>
+  </div>`;
+}
+
+function selectMyPlayer(pi){
+  myPlayerIndex = pi;
+  myPlayerName  = S.players[pi].name;
+  // Save selection in localStorage so they don't pick every time
+  try{ localStorage.setItem("pm26_mypi", pi + "|" + myPlayerName); }catch(e){}
+  rMiPredForm(document.getElementById("p-mipred"));
+}
+
+function rMiPredForm(el){
+  const pi = myPlayerIndex;
+  const p  = S.players[pi];
+  const T  = totals();
+  const ranked = [...T].sort((a,b)=>b-a);
+  const rank   = ranked.indexOf(T[pi])+1;
+  const now    = new Date();
+
+  // Find upcoming matches (not yet started — cutoff 10 min before)
+  // Since we don't have exact times, show all matches without a real result yet
+  const upcoming = GM.map((m,mi)=>({m,mi})).filter(({mi})=>{
+    const r = S.real[mi];
+    return !r || (r.h===undefined && r.a===undefined);
+  });
+  const played = GM.map((m,mi)=>({m,mi})).filter(({mi})=>{
+    const r = S.real[mi];
+    return r && r.h!==undefined && r.a!==undefined;
+  });
+
+  let upcomingRows = upcoming.slice(0,10).map(({m,mi})=>{
+    const key = `${mi}_${pi}`;
+    const pr  = S.pred[key]||{};
+    const hasP = pr.h!==undefined && pr.a!==undefined;
+    return `<div style="background:var(--card2);border:1px solid var(--border);border-radius:var(--r);
+      margin-bottom:8px;overflow:hidden">
+      <div style="display:flex;align-items:center;gap:7px;padding:7px 12px;border-bottom:1px solid var(--border)">
+        <span style="font-size:10px;font-weight:700;color:var(--blue-text);background:var(--blue-bg);
+          border:1px solid var(--blue-border);padding:2px 7px;border-radius:4px">${m.n}</span>
+        <span style="font-size:10px;color:var(--muted)">${m.d} · ${m.t} EST</span>
+        <span style="font-size:10px;color:var(--faint);margin-left:auto">${m.city}</span>
+        ${hasP?`<span style="font-size:9px;font-weight:700;color:var(--green-text);background:var(--green-bg);
+          border:1px solid var(--green-border);padding:2px 6px;border-radius:4px">✓ Guardado</span>`:""}
+      </div>
+      <div style="padding:10px 12px">
+        <div style="display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;margin-bottom:10px">
+          <div style="display:flex;flex-direction:column-reverse;align-items:center;gap:3px;text-align:center">
+            <div style="font-size:11px;font-weight:700;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${m.h}</div>
+            <div style="font-size:24px;line-height:1">${fl(m.h)}</div>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:5px">
+            <div style="display:flex;gap:5px;align-items:center">
+              <input type="number" min="0" max="99" id="mph-${mi}" value="${pr.h!==undefined?pr.h:""}"
+                placeholder="0" class="sc-inp" style="width:46px;height:44px;font-size:18px">
+              <span style="font-size:20px;font-weight:700;color:var(--border)">–</span>
+              <input type="number" min="0" max="99" id="mpa-${mi}" value="${pr.a!==undefined?pr.a:""}"
+                placeholder="0" class="sc-inp" style="width:46px;height:44px;font-size:18px">
+            </div>
+            <div style="font-size:9px;color:var(--faint);letter-spacing:.06em">MI PRONÓSTICO</div>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:3px;text-align:center">
+            <div style="font-size:24px;line-height:1">${fl(m.a)}</div>
+            <div style="font-size:11px;font-weight:700;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${m.a}</div>
+          </div>
+        </div>
+        <button onclick="saveMyPred(${mi},${pi})" class="btn btn-gold" style="width:100%;justify-content:center">
+          <i class="ti ti-check"></i>${hasP?"Actualizar pronóstico":"Guardar pronóstico"}
+        </button>
+      </div>
+    </div>`;
+  }).join("");
+
+  // Played matches with my predictions
+  let playedRows = played.map(({m,mi})=>{
+    const key = `${mi}_${pi}`;
+    const pr  = S.pred[key]||{};
+    const r   = S.real[mi];
+    const v   = r&&pr.h!==undefined?calcPts(r.h,r.a,pr.h,pr.a,false):null;
+    const cls = v===null?"pt-n":v===0?"pt-0":v===3?"pt-3":v===5?"pt-5":"pt-7";
+    return `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)">
+      <div style="font-size:10px;color:var(--muted);min-width:28px">${m.n}</div>
+      <div style="flex:1;font-size:12px">${fl(m.h)} ${m.h} <span style="color:var(--faint)">vs</span> ${fl(m.a)} ${m.a}</div>
+      <div style="font-size:11px;color:var(--muted)">${pr.h!==undefined?pr.h+"–"+pr.a:"–"}</div>
+      <div style="font-size:11px;font-weight:700;color:var(--navy);min-width:30px;text-align:center">${r?r.h+"–"+r.a:"?"}</div>
+      <span class="ptag ${cls}">${v!==null?v+"p":"–"}</span>
+    </div>`;
+  }).join("");
+
+  el.innerHTML = `
+  <!-- Header jugador -->
+  <div style="background:var(--navy);border-radius:var(--r-lg);padding:16px 18px;margin-bottom:14px;
+    display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+    <div style="width:48px;height:48px;border-radius:50%;background:${AVC[pi%AVC.length]};
+      display:flex;align-items:center;justify-content:center;font-family:var(--fd);
+      font-size:20px;color:#fff;flex-shrink:0">${ini(p.name)}</div>
+    <div style="flex:1;min-width:0">
+      <div style="font-family:var(--fd);font-size:20px;color:var(--gold);letter-spacing:.03em;
+        white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${p.name}</div>
+      <div style="font-size:11px;color:rgba(240,200,102,.55);margin-top:2px">
+        Posición ${rank}° de ${S.players.length} &nbsp;·&nbsp;
+        ${p.paid?'<span style="color:#6EE7B7">✓ Pagó</span>':'<span style="color:#FCA5A5">⚠ Pendiente</span>'}
+      </div>
+    </div>
+    <div style="text-align:right;flex-shrink:0">
+      <div style="font-family:var(--fd);font-size:40px;color:var(--gold2);line-height:1">${T[pi]}</div>
+      <div style="font-size:9px;color:rgba(240,200,102,.45);letter-spacing:.06em">PUNTOS</div>
+    </div>
+  </div>
+
+  <button onclick="myPlayerIndex=null;myPlayerName=null;localStorage.removeItem('pm26_mypi');rMiPred()"
+    style="font-size:12px;color:var(--muted);background:none;border:none;cursor:pointer;
+    margin-bottom:12px;display:flex;align-items:center;gap:4px">
+    <i class="ti ti-refresh" style="font-size:14px"></i>Cambiar jugador
+  </button>
+
+  <!-- Próximos partidos -->
+  <div class="sec-title" style="margin-bottom:10px">✏️ Ingresar mis pronósticos</div>
+  <div style="font-size:12px;color:var(--muted);margin-bottom:12px;padding:8px 12px;
+    background:var(--amber-bg);border:1px solid var(--amber-border);border-radius:var(--r-sm);color:var(--amber-text)">
+    ⏰ Los pronósticos se cierran <strong>10 minutos antes</strong> de cada partido.
+    Una vez que el admin ingresa el resultado, ya no puedes cambiarlos.
+  </div>
+  ${upcoming.length ? upcomingRows : `<div class="empty">No hay partidos próximos por el momento.</div>`}
+
+  <!-- Partidos jugados -->
+  ${played.length ? `
+  <div class="sec-title" style="margin-bottom:10px;margin-top:20px">📊 Mis resultados anteriores</div>
+  <div class="card">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:6px">
+      <span style="font-size:11px;color:var(--muted)">Pred. · Real · Pts</span>
+    </div>
+    ${playedRows}
+  </div>` : ""}`;
+}
+
+function saveMyPred(mi, pi){
+  const h = document.getElementById(`mph-${mi}`)?.value;
+  const a = document.getElementById(`mpa-${mi}`)?.value;
+  if(h===""||h===undefined||a===""||a===undefined){
+    toast("Ingresa los dos marcadores","err"); return;
+  }
+  // Check if result already entered — if so, block
+  const r = S.real[mi];
+  if(r && r.h!==undefined && r.a!==undefined){
+    toast("Este partido ya tiene resultado — no puedes cambiar tu pronóstico","err"); return;
+  }
+  S.pred[`${mi}_${pi}`] = {h:+h, a:+a};
+  save(); // saves to Firebase
+  toast(`✓ Pronóstico guardado para ${GM[mi].h} vs ${GM[mi].a}`);
+  rMiPredForm(document.getElementById("p-mipred"));
 }
 
 
