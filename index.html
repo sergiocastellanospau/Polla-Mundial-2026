@@ -1011,177 +1011,122 @@ function toast(msg,type="ok"){
 //  HOY Y PRÓXIMOS PARTIDOS — Widget para la Tabla
 // ════════════════════════════════════════════════════════════
 function buildUpcomingWidget(){
-  // Parse match datetime and compare with now (local time)
-  // Match times are in EDT (UTC-4) during June-July 2026
-  const EDT_OFFSET = 4 * 60; // minutes
-  const months = {Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
-
-  function matchUTCms(m){
+  const EDT = 4; // EDT = UTC-4
+  const MO = {Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
+  function kms(m){
     try{
-      const [mon,day] = m.d.split(" ");
-      const [hh,mm]   = m.t.split(":");
-      return Date.UTC(2026, months[mon], parseInt(day),
-                      parseInt(hh)+EDT_OFFSET/60, parseInt(mm));
-    }catch(e){ return Infinity; }
+      const [mo,d]=m.d.split(" ",[mon,day]);
+      const [hh,mm]=m.t.split(":");
+      return Date.UTC(2026,MO[m.d.split(" ")[0]],parseInt(m.d.split(" ")[1]),parseInt(hh)+EDT,parseInt(mm));
+    }catch(e){return Infinity;}
   }
-
   const now = Date.now();
-  const todayUTC = new Date();
-  todayUTC.setUTCHours(EDT_OFFSET/60,0,0,0); // start of today in EDT
+  const todayStr = new Date().toDateString();
 
-  // Categorize matches
-  const live     = [];
-  const today    = [];
-  const upcoming = [];
-
+  // Bucket each match
+  const liveNow=[], todayBucket=[], futureBucket=[];
   GM.forEach((m,mi)=>{
-    const kickoff = matchUTCms(m);
-    const end     = kickoff + 115*60*1000; // ~115 min after kickoff
-    const r       = S.real[String(mi)];
-    const hasResult = r && r.h!==undefined && r.a!==undefined;
-    const isToday   = new Date(kickoff).toDateString() === new Date().toDateString();
-
-    if(hasResult && isToday){
-      today.push({m,mi,kickoff,done:true});
-    } else if(!hasResult && now >= kickoff - 5*60*1000 && now <= end){
-      live.push({m,mi,kickoff,done:false});
-    } else if(!hasResult && kickoff > now){
-      upcoming.push({m,mi,kickoff,done:false});
-    } else if(hasResult && kickoff > now - 3*60*60*1000 && isToday){
-      today.push({m,mi,kickoff,done:true});
-    }
+    const r=S.real[String(mi)];
+    const hasR=r&&r.h!==undefined&&r.a!==undefined;
+    if(hasR) return; // skip played matches
+    const k=kms(m);
+    const isToday = new Date(k).toDateString()===todayStr;
+    const inPlay  = now>=k-5*60*1000 && now<=k+115*60*1000;
+    if(inPlay)          liveNow.push({m,mi,k});
+    else if(isToday)    todayBucket.push({m,mi,k});
+    else if(k>now)      futureBucket.push({m,mi,k});
   });
+  futureBucket.sort((a,b)=>a.k-b.k);
+  const next5 = futureBucket.slice(0,5);
+  const showToday = [...liveNow,...todayBucket].sort((a,b)=>a.k-b.k);
 
-  // Sort upcoming chronologically, take next 5
-  upcoming.sort((a,b)=>a.kickoff-b.kickoff);
-  const nextFive = upcoming.slice(0,5);
+  if(!showToday.length && !next5.length) return '';
 
-  // Nothing to show
-  if(!live.length && !today.length && !nextFive.length) return '';
-
-  let h = `<div style="margin-bottom:16px">
+  let h=`<div style="margin-bottom:16px">
     <div class="sec-title" style="margin-bottom:10px">
-      ${live.length ? '🔴 En curso · ' : ''}📅 Hoy y próximos partidos
+      ${liveNow.length?'🔴 En curso · ':''}📅 Hoy${showToday.length?'':' · próximos partidos'}
     </div>`;
 
-  // ── LIVE matches ──────────────────────────────────────────
-  live.forEach(({m,mi})=>{
-    const r = S.real[String(mi)]||{};
-    h += `<div onclick="go('partidos')" style="cursor:pointer;background:#0D1B2A;border:2px solid var(--red);
-      border-radius:var(--r);padding:12px 14px;margin-bottom:8px;position:relative;overflow:hidden">
-      <div style="position:absolute;top:0;left:0;right:0;height:2px;
-        background:linear-gradient(90deg,var(--red),transparent);animation:shimmer 2s infinite"></div>
-      <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
-        <span style="display:inline-flex;align-items:center;gap:4px;background:var(--red);
-          color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px">
-          <span style="width:5px;height:5px;border-radius:50%;background:#fff;
-            animation:blink 1s infinite;display:inline-block"></span>EN VIVO
-        </span>
-        <span style="font-size:10px;color:rgba(255,255,255,.4)">Grupo ${m.g} · ${m.v}</span>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px">
-        <div style="text-align:center">
-          <div style="font-size:22px">${fl(m.h)}</div>
-          <div style="font-size:11px;font-weight:700;color:#fff;margin-top:2px">${m.h}</div>
-        </div>
-        <div style="text-align:center">
-          <div style="font-family:var(--fd);font-size:32px;color:var(--gold);line-height:1">
-            ${r.h!==undefined?r.h:'–'} – ${r.a!==undefined?r.a:'–'}
-          </div>
-          <div style="font-size:9px;color:rgba(255,255,255,.4);letter-spacing:.06em">TIEMPO REAL</div>
-        </div>
-        <div style="text-align:center">
-          <div style="font-size:22px">${fl(m.a)}</div>
-          <div style="font-size:11px;font-weight:700;color:#fff;margin-top:2px">${m.a}</div>
-        </div>
-      </div>
-    </div>`;
-  });
-
-  // ── TODAY matches (done) ──────────────────────────────────
-  today.forEach(({m,mi,done})=>{
-    const r = S.real[String(mi)]||{};
-    const hasR = r.h!==undefined && r.a!==undefined;
-    h += `<div onclick="go('partidos')" style="cursor:pointer;background:var(--card);
-      border:1px solid var(--border);border-radius:var(--r);padding:11px 14px;
-      margin-bottom:8px;display:grid;grid-template-columns:1fr auto 1fr;
-      align-items:center;gap:8px;box-shadow:var(--sh)">
+  // ── TODAY / LIVE ─────────────────────────────────────────
+  showToday.forEach(({m,mi})=>{
+    const isL=liveNow.some(l=>l.mi===mi);
+    const pc=S.players.filter((_,pi)=>{const p=S.pred[`${mi}_${pi}`];return p&&p.h!==undefined;}).length;
+    h+=`<div onclick="go('partidos')" style="cursor:pointer;background:var(--card);
+      border:1.5px solid ${isL?'var(--red)':'var(--blue-border)'};
+      border-radius:var(--r);padding:11px 14px;margin-bottom:8px;
+      display:grid;grid-template-columns:1fr auto 1fr;align-items:center;
+      gap:8px;box-shadow:var(--sh)">
       <div style="text-align:center">
         <div style="font-size:20px">${fl(m.h)}</div>
-        <div style="font-size:10px;font-weight:700;margin-top:2px">${m.h}</div>
+        <div style="font-size:10px;font-weight:700;margin-top:2px;
+          max-width:80px;white-space:nowrap;overflow:hidden;
+          text-overflow:ellipsis;margin:2px auto 0">${m.h}</div>
       </div>
-      <div style="text-align:center">
-        ${hasR
-          ? `<div style="font-family:var(--fd);font-size:28px;color:var(--navy);line-height:1">${r.h} – ${r.a}</div>
-             <div style="font-size:9px;color:var(--green-text);font-weight:700;margin-top:2px">✓ Final</div>`
-          : `<div style="font-size:10px;color:var(--muted)">${matchLocalTime(m.d,m.t)}</div>`
-        }
-        <div style="font-size:9px;color:var(--faint);margin-top:1px">Grupo ${m.g}</div>
+      <div style="text-align:center;min-width:70px">
+        ${isL
+          ? `<div style="display:inline-flex;align-items:center;gap:4px;background:var(--red);
+              color:#fff;font-size:9px;font-weight:700;padding:2px 7px;border-radius:10px;margin-bottom:4px">
+              <span style="width:4px;height:4px;border-radius:50%;background:#fff;
+                animation:blink 1s infinite;display:inline-block"></span>EN VIVO</div>
+             <div style="font-family:var(--fd);font-size:26px;color:var(--navy);line-height:1">– –</div>`
+          : `<div style="font-size:11px;font-weight:700;color:var(--blue-text)">${matchLocalTime(m.d,m.t)}</div>
+             <div style="font-size:9px;color:var(--faint);margin-top:2px">Grupo ${m.g} · ${pc}/${S.players.length}</div>`}
       </div>
       <div style="text-align:center">
         <div style="font-size:20px">${fl(m.a)}</div>
-        <div style="font-size:10px;font-weight:700;margin-top:2px">${m.a}</div>
+        <div style="font-size:10px;font-weight:700;margin-top:2px;
+          max-width:80px;white-space:nowrap;overflow:hidden;
+          text-overflow:ellipsis;margin:2px auto 0">${m.a}</div>
       </div>
     </div>`;
   });
 
-  // ── UPCOMING matches ──────────────────────────────────────
-  if(nextFive.length){
-    // Group by date
-    const byDate = {};
-    nextFive.forEach(({m,mi,kickoff})=>{
-      const dateKey = new Date(kickoff).toLocaleDateString("es",{weekday:"long",day:"numeric",month:"long"});
-      if(!byDate[dateKey]) byDate[dateKey]=[];
-      byDate[dateKey].push({m,mi,kickoff});
+  // ── NEXT 5 from future days (opaque) ─────────────────────
+  if(next5.length){
+    // Group by date label
+    const byDate={};
+    next5.forEach(({m,mi,k})=>{
+      const dl=new Date(k).toLocaleDateString("es",{weekday:"long",day:"numeric",month:"long"});
+      if(!byDate[dl])byDate[dl]=[];
+      byDate[dl].push({m,mi});
     });
-
-    Object.entries(byDate).forEach(([dateLabel, matches])=>{
-      const isNextDay = matches[0].kickoff - now < 24*60*60*1000;
-      h += `<div style="font-size:10px;font-weight:700;letter-spacing:.06em;
-        text-transform:uppercase;color:var(--muted);
-        margin:${today.length||live.length?'12px':'0'} 0 6px;
-        display:flex;align-items:center;gap:8px">
+    Object.entries(byDate).forEach(([dl,ms],gi)=>{
+      h+=`<div style="display:flex;align-items:center;gap:8px;
+        margin:${gi===0&&showToday.length?'10px':'6px'} 0 6px">
         <div style="flex:1;height:1px;background:var(--border)"></div>
-        <span>${dateLabel}</span>
+        <span style="font-size:9px;font-weight:700;letter-spacing:.06em;
+          text-transform:uppercase;color:var(--faint)">${dl}</span>
         <div style="flex:1;height:1px;background:var(--border)"></div>
       </div>`;
-
-      matches.forEach(({m,mi})=>{
-        const predsCount = S.players.filter((_,pi)=>{
-          const pr=S.pred[`${mi}_${pi}`];
-          return pr && pr.h!==undefined;
-        }).length;
-        const locked = isMatchLocked(m);
-
-        h += `<div onclick="go('partidos')" style="cursor:pointer;background:var(--card);
-          border:1px solid var(--border);border-radius:var(--r);padding:10px 14px;
-          margin-bottom:6px;display:grid;grid-template-columns:1fr auto 1fr;
-          align-items:center;gap:8px;box-shadow:var(--sh)">
+      ms.forEach(({m,mi})=>{
+        const pc=S.players.filter((_,pi)=>{const p=S.pred[`${mi}_${pi}`];return p&&p.h!==undefined;}).length;
+        h+=`<div style="background:var(--card);border:1px solid var(--border);
+          border-radius:var(--r);padding:10px 14px;margin-bottom:6px;
+          display:grid;grid-template-columns:1fr auto 1fr;align-items:center;
+          gap:8px;opacity:0.45;filter:grayscale(25%);box-shadow:var(--sh)">
           <div style="text-align:center">
             <div style="font-size:18px">${fl(m.h)}</div>
-            <div style="font-size:10px;font-weight:700;margin-top:2px;overflow:hidden;
-              text-overflow:ellipsis;white-space:nowrap;max-width:80px;margin:2px auto 0">${m.h}</div>
+            <div style="font-size:10px;font-weight:700;margin-top:2px;color:var(--faint);
+              max-width:80px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin:2px auto 0">${m.h}</div>
           </div>
-          <div style="text-align:center;min-width:80px">
-            <div style="font-size:11px;font-weight:700;color:var(--navy)">${matchLocalTime(m.d,m.t)}</div>
-            <div style="font-size:9px;color:var(--faint);margin-top:2px">Grupo ${m.g} · ${m.n}</div>
-            <div style="font-size:9px;margin-top:3px;color:${locked?'var(--red-text)':'var(--green-text)'}">
-              ${locked?'🔒 Cerrado':'✏️ '+predsCount+'/'+S.players.length+' pred.'}
-            </div>
+          <div style="text-align:center;min-width:60px">
+            <div style="font-size:11px;font-weight:700;color:var(--faint)">${matchLocalTime(m.d,m.t)}</div>
+            <div style="font-size:9px;color:var(--faint);margin-top:2px">${m.n} · ${pc}/${S.players.length}</div>
           </div>
           <div style="text-align:center">
             <div style="font-size:18px">${fl(m.a)}</div>
-            <div style="font-size:10px;font-weight:700;margin-top:2px;overflow:hidden;
-              text-overflow:ellipsis;white-space:nowrap;max-width:80px;margin:2px auto 0">${m.a}</div>
+            <div style="font-size:10px;font-weight:700;margin-top:2px;color:var(--faint);
+              max-width:80px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin:2px auto 0">${m.a}</div>
           </div>
         </div>`;
       });
     });
   }
 
-  h += `</div>`;
+  h+=`</div>`;
   return h;
 }
+
 
 function rTabla(){
   const T=totals(),maxP=Math.max(...T,1);
@@ -1200,7 +1145,6 @@ function rTabla(){
     </div>
     <div class="hero-dead">💵 Cuota <strong>${fmtMoney(S.cuota)}</strong> ${S.currency?.code||'USD'} · ${S.players.length} participantes</div>
   </div>
-  \${buildUpcomingWidget()}
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px">
     <div class="sec-title">Clasificación</div>
     <button class="btn btn-ghost btn-sm" onclick="pdfTabla()"><i class="ti ti-file-type-pdf"></i>Ver PDF</button>
@@ -1236,7 +1180,7 @@ function rPartidos(){
   let lastG=null;
   GM.forEach((m,mi)=>{
     if((filt!=="all"&&filt!==m.g)||( srch&&!(m.h+m.a).toLowerCase().includes(srch.toLowerCase())))return;
-    if(m.g!==lastG){h+=`<div class="phase-sep"><div class="phase-line"></div><div class="phase-badge">Grupo ${m.g}</div><div class="phase-line"></div></div>`;lastG=m.g;}
+    if(filt!=="all" && m.g!==lastG){h+=`<div class="phase-sep"><div class="phase-line"></div><div class="phase-badge">Grupo ${m.g}</div><div class="phase-line"></div></div>`;lastG=m.g;}
     const r=S.real[String(mi)]||{};
     const hasR=r.h!==undefined&&r.a!==undefined;
     const scoreDisplay=isAdmin
@@ -3082,154 +3026,206 @@ function rMundial(){
   const el = document.getElementById("p-mundial");
   if(!el) return;
 
-  const played = GM.map((m,mi)=>({m,mi})).filter(({mi})=>{
-    const r = S.real[String(mi)];
-    return r && r.h!==undefined && r.a!==undefined;
-  });
-
-  // ── Next 5 upcoming (shown as locked/opaque) ───────────────
-  const upcoming5 = GM.map((m,mi)=>({m,mi})).filter(({mi})=>{
-    const r = S.real[String(mi)];
-    return !r || r.h===undefined;
-  }).slice(0,5);
-
-  if(!played.length){
-    let uph = `
-    <div class="hero" style="margin-bottom:16px">
-      <div class="hero-ey">FIFA World Cup 2026</div>
-      <div class="hero-t">CÓMO VA EL MUNDIAL</div>
-      <div class="hero-s">Resultados oficiales · Los partidos aparecen al jugarse</div>
-    </div>
-    <div class="empty" style="padding:24px 20px 12px">
-      <div style="font-size:32px;margin-bottom:8px">⚽</div>
-      <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px">Aún no hay resultados</div>
-      <div style="font-size:12px;color:var(--muted)">Los partidos aparecerán aquí una vez que el admin ingrese el resultado.</div>
-    </div>`;
-    uph += buildUpcomingLocked(upcoming5);
-    el.innerHTML = uph;
-    return;
+  const EDT=4;
+  const MO={Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
+  function kms(m){
+    try{
+      const[mon,day]=m.d.split(" ");
+      const[hh,mm]=m.t.split(":");
+      return Date.UTC(2026,MO[mon],parseInt(day),parseInt(hh)+EDT,parseInt(mm));
+    }catch(e){return Infinity;}
   }
 
-  // Group by phase (group letter)
-  const groups = {};
-  played.forEach(({m,mi})=>{
-    const g = m.g;
-    if(!groups[g]) groups[g]=[];
-    groups[g].push({m,mi});
-  });
+  const now=Date.now();
+  const todayStr=new Date().toDateString();
 
-  let h = `
+  // Get next 2 calendar days after today
+  const d1=new Date(); d1.setDate(d1.getDate()+1);
+  const d2=new Date(); d2.setDate(d2.getDate()+2);
+  const day1Str=d1.toDateString();
+  const day2Str=d2.toDateString();
+
+  const played=[], todayMs=[], day1Ms=[], day2Ms=[];
+  GM.forEach((m,mi)=>{
+    const r=S.real[String(mi)];
+    if(r&&r.h!==undefined&&r.a!==undefined){played.push({m,mi,r});return;}
+    const k=kms(m);
+    const ds=new Date(k).toDateString();
+    if(ds===todayStr)      todayMs.push({m,mi,k});
+    else if(ds===day1Str)  day1Ms.push({m,mi,k});
+    else if(ds===day2Str)  day2Ms.push({m,mi,k});
+  });
+  // Sort each bucket chronologically
+  [todayMs,day1Ms,day2Ms].forEach(b=>b.sort((a,b2)=>a.k-b2.k));
+
+  let h=`
   <div class="hero" style="margin-bottom:16px">
     <div class="hero-ey">FIFA World Cup 2026</div>
     <div class="hero-t">CÓMO VA EL MUNDIAL</div>
     <div class="hero-s">${played.length} partido${played.length!==1?"s":""} jugado${played.length!==1?"s":""} · ${72-played.length} restantes en grupos</div>
   </div>`;
 
-  // Sort groups alphabetically
-  Object.keys(groups).sort().forEach(g=>{
-    h += `<div class="phase-sep">
-      <div class="phase-line"></div>
-      <div class="phase-badge">Grupo ${g}</div>
-      <div class="phase-line"></div>
-    </div>`;
-
-    groups[g].forEach(({m,mi})=>{
-      const r = S.real[String(mi)];
-      const homeWin = r.h > r.a;
-      const awayWin = r.a > r.h;
-      const draw    = r.h === r.a;
-
-      h += `<div style="background:var(--card);border:1px solid var(--border);
-        border-radius:var(--r);margin-bottom:8px;overflow:hidden;box-shadow:var(--sh)">
-
-        <!-- Match header -->
-        <div style="display:flex;align-items:center;gap:7px;padding:7px 13px;
-          border-bottom:1px solid var(--border);background:var(--card2)">
-          <span style="font-size:10px;font-weight:700;color:var(--blue-text);
-            background:var(--blue-bg);border:1px solid var(--blue-border);
-            padding:2px 7px;border-radius:4px">${m.n}</span>
-          <span style="font-size:10px;color:var(--muted)">${m.d}</span>
-          <span style="font-size:9px;font-weight:700;color:var(--green-text);
-            background:var(--green-bg);border:1px solid var(--green-border);
-            padding:2px 6px;border-radius:4px;margin-left:auto">✓ Final</span>
+  // ── PLAYED results — chronological ───────────────────────
+  if(played.length){
+    played.forEach(({m,mi,r})=>{
+      const hw=r.h>r.a,aw=r.a>r.h,draw=r.h===r.a;
+      h+=`<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r);margin-bottom:8px;overflow:hidden;box-shadow:var(--sh)">
+        <div style="display:flex;align-items:center;gap:7px;padding:7px 13px;border-bottom:1px solid var(--border);background:var(--card2)">
+          <span style="font-size:10px;font-weight:700;color:var(--blue-text);background:var(--blue-bg);border:1px solid var(--blue-border);padding:2px 7px;border-radius:4px">${m.n}</span>
+          <span style="font-size:10px;color:var(--muted)">${m.d} · Grupo ${m.g}</span>
+          <span style="font-size:9px;font-weight:700;color:var(--green-text);background:var(--green-bg);border:1px solid var(--green-border);padding:2px 6px;border-radius:4px;margin-left:auto">✓ Final</span>
         </div>
-
-        <!-- Scoreline -->
-        <div style="display:grid;grid-template-columns:1fr auto 1fr;
-          align-items:center;gap:8px;padding:14px 16px">
-
-          <!-- Home team -->
-          <div style="display:flex;flex-direction:column-reverse;align-items:center;
-            gap:4px;text-align:center">
-            <div style="font-size:12px;font-weight:${homeWin?'900':'600'};
-              color:${homeWin?'var(--navy)':'var(--text)'};max-width:90px;
-              white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m.h}</div>
+        <div style="display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;padding:14px 16px">
+          <div style="display:flex;flex-direction:column-reverse;align-items:center;gap:4px;text-align:center">
+            <div style="font-size:12px;font-weight:${hw?900:600};color:${hw?'var(--navy)':'var(--text)'};max-width:90px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m.h}</div>
             <div style="font-size:28px;line-height:1">${fl(m.h)}</div>
           </div>
-
-          <!-- Score -->
-          <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
+          <div style="display:flex;flex-direction:column;align-items:center;gap:6px">
             <div style="display:flex;align-items:center;gap:8px">
-              <!-- Home score + star if winner -->
               <div style="position:relative;text-align:center;min-width:28px">
-                ${homeWin?`<span style="position:absolute;top:-14px;left:50%;transform:translateX(-50%);
-                  font-size:13px;line-height:1">⭐</span>`:''}
-                <div style="font-family:var(--fd);font-size:40px;line-height:1;
-                  color:${homeWin?'var(--green)':draw?'var(--navy)':'var(--faint)'}">${r.h}</div>
+                ${hw?`<span style="position:absolute;top:-14px;left:50%;transform:translateX(-50%);font-size:13px">⭐</span>`:''}
+                <div style="font-family:var(--fd);font-size:40px;line-height:1;color:${hw?'var(--green)':draw?'var(--navy)':'var(--faint)'}">${r.h}</div>
               </div>
               <div style="font-size:22px;font-weight:700;color:var(--border)">–</div>
-              <!-- Away score + star if winner -->
               <div style="position:relative;text-align:center;min-width:28px">
-                ${awayWin?`<span style="position:absolute;top:-14px;left:50%;transform:translateX(-50%);
-                  font-size:13px;line-height:1">⭐</span>`:''}
-                <div style="font-family:var(--fd);font-size:40px;line-height:1;
-                  color:${awayWin?'var(--green)':draw?'var(--navy)':'var(--faint)'}">${r.a}</div>
+                ${aw?`<span style="position:absolute;top:-14px;left:50%;transform:translateX(-50%);font-size:13px">⭐</span>`:''}
+                <div style="font-family:var(--fd);font-size:40px;line-height:1;color:${aw?'var(--green)':draw?'var(--navy)':'var(--faint)'}">${r.a}</div>
               </div>
             </div>
-            ${draw?`<div style="font-size:9px;font-weight:700;color:var(--muted);
-              letter-spacing:.06em;text-transform:uppercase">Empate</div>`:''}
+            ${draw?`<div style="font-size:9px;font-weight:700;color:var(--muted);letter-spacing:.06em">EMPATE</div>`:''}
           </div>
-
-          <!-- Away team -->
-          <div style="display:flex;flex-direction:column;align-items:center;
-            gap:4px;text-align:center">
+          <div style="display:flex;flex-direction:column;align-items:center;gap:4px;text-align:center">
             <div style="font-size:28px;line-height:1">${fl(m.a)}</div>
-            <div style="font-size:12px;font-weight:${awayWin?'900':'600'};
-              color:${awayWin?'var(--navy)':'var(--text)'};max-width:90px;
-              white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m.a}</div>
+            <div style="font-size:12px;font-weight:${aw?900:600};color:${aw?'var(--navy)':'var(--text)'};max-width:90px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m.a}</div>
           </div>
-
         </div>
-
-        <!-- Pronósticos resumen -->
-        <div style="background:var(--card2);border-top:1px solid var(--border);
-          padding:8px 13px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-          <span style="font-size:9px;font-weight:700;letter-spacing:.07em;
-            color:var(--muted);text-transform:uppercase">Polla:</span>
+        <div style="background:var(--card2);border-top:1px solid var(--border);padding:7px 13px;display:flex;align-items:center;gap:5px;flex-wrap:wrap">
+          <span style="font-size:9px;font-weight:700;letter-spacing:.07em;color:var(--muted);text-transform:uppercase;margin-right:3px">Polla:</span>
           ${S.players.map((pl,pi)=>{
-            const pr = S.pred[`${mi}_${pi}`];
-            if(!pr||pr.h===undefined) return `<span style="font-size:9px;color:var(--faint)">${pl.name.split(" ")[0]} ${pl.name.split(" ")[1]?pl.name.split(" ")[1][0]+".":""} –</span>`;
-            const v = calcPts(r.h,r.a,pr.h,pr.a,false);
-            const bg = v===5?"var(--green-bg)":v===3?"var(--blue-bg)":v===0?"var(--red-bg)":"var(--off)";
-            const col = v===5?"var(--green-text)":v===3?"var(--blue-text)":v===0?"var(--red-text)":"var(--faint)";
-            const border = v===5?"var(--green-border)":v===3?"var(--blue-border)":v===0?"var(--red-border)":"var(--border)";
-            return `<span style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px;
-              background:${bg};color:${col};border:1px solid ${border};white-space:nowrap">
-              ${pl.name.split(" ")[0]+" "+(pl.name.split(" ")[1]?pl.name.split(" ")[1][0]+".":"")} ${pr.h}:${pr.a} ${v!==null?'('+v+'p)':''}
-            </span>`;
+            const nm=pl.name.split(" ")[0]+" "+(pl.name.split(" ")[1]?pl.name.split(" ")[1][0]+".":"");
+            const pr=S.pred[`${mi}_${pi}`];
+            if(!pr||pr.h===undefined) return `<span style="font-size:9px;color:var(--faint)">${nm} –</span>`;
+            const v=calcPts(r.h,r.a,pr.h,pr.a,false);
+            const bg=v===5?"var(--green-bg)":v===3?"var(--blue-bg)":v===0?"var(--red-bg)":"var(--off)";
+            const col=v===5?"var(--green-text)":v===3?"var(--blue-text)":v===0?"var(--red-text)":"var(--faint)";
+            const brd=v===5?"var(--green-border)":v===3?"var(--blue-border)":v===0?"var(--red-border)":"var(--border)";
+            return `<span style="font-size:9px;font-weight:700;padding:2px 5px;border-radius:4px;background:${bg};color:${col};border:1px solid ${brd};white-space:nowrap">${nm} ${pr.h}:${pr.a}${v!==null?' ('+v+'p)':''}</span>`;
           }).join("")}
         </div>
-
       </div>`;
+    });
+  } else {
+    h+=`<div class="empty" style="padding:24px 20px 16px">
+      <div style="font-size:32px;margin-bottom:8px">⚽</div>
+      <div style="font-size:13px;font-weight:700;margin-bottom:4px">Aún no hay resultados</div>
+      <div style="font-size:12px;color:var(--muted)">Los partidos aparecen aquí cuando el admin ingresa el resultado.</div>
+    </div>`;
+  }
+
+  // ── TODAY upcoming (in color, not yet played) ─────────────
+  if(todayMs.length){
+    h+=`<div class="phase-sep" style="margin-top:${played.length?'16px':'4px'}">
+      <div class="phase-line"></div>
+      <div class="phase-badge" style="color:var(--blue-text);border-color:var(--blue-border);background:var(--blue-bg)">📅 Hoy</div>
+      <div class="phase-line"></div>
+    </div>`;
+    todayMs.forEach(({m,mi})=>{
+      const pc=S.players.filter((_,pi)=>{const p=S.pred[`${mi}_${pi}`];return p&&p.h!==undefined;}).length;
+      h+=mundialUpcomingCard(m,mi,pc,false);
+    });
+  }
+
+  // ── NEXT 2 DAYS opaque ────────────────────────────────────
+  const opaqueGroups=[
+    {label:d1.toLocaleDateString("es",{weekday:"long",day:"numeric",month:"long"}), matches:day1Ms},
+    {label:d2.toLocaleDateString("es",{weekday:"long",day:"numeric",month:"long"}), matches:day2Ms},
+  ].filter(g=>g.matches.length);
+
+  opaqueGroups.forEach(({label,matches},gi)=>{
+    h+=`<div class="phase-sep" style="margin-top:${gi===0&&(played.length||todayMs.length)?'16px':'8px'}">
+      <div class="phase-line"></div>
+      <div class="phase-badge" style="color:var(--faint);border-color:var(--border)">🔒 ${label}</div>
+      <div class="phase-line"></div>
+    </div>`;
+    matches.forEach(({m,mi})=>{
+      const pc=S.players.filter((_,pi)=>{const p=S.pred[`${mi}_${pi}`];return p&&p.h!==undefined;}).length;
+      h+=mundialUpcomingCard(m,mi,pc,true);
     });
   });
 
-  // ── Próximos 5 (al final, opacos) ──────────────────────────
-  if(upcoming5.length){
-    h += buildUpcomingLocked(upcoming5);
-  }
+  el.innerHTML=h;
+}
 
-  el.innerHTML = h;
+// Shared card for upcoming matches in Mundial
+function mundialUpcomingCard(m,mi,pc,opaque){
+  return `<div style="background:var(--card);border:${opaque?'1px solid var(--border)':'1.5px solid var(--blue-border)'};
+    border-radius:var(--r);margin-bottom:8px;overflow:hidden;box-shadow:var(--sh);
+    ${opaque?'opacity:0.45;filter:grayscale(25%);pointer-events:none':''}">
+    <div style="display:flex;align-items:center;gap:7px;padding:7px 13px;
+      border-bottom:1px solid var(--border);
+      background:${opaque?'var(--card2)':'var(--blue-bg)'}">
+      <span style="font-size:10px;font-weight:700;
+        color:${opaque?'var(--faint)':'var(--blue-text)'};
+        background:${opaque?'var(--off)':'#fff'};
+        border:1px solid ${opaque?'var(--border)':'var(--blue-border)'};
+        padding:2px 7px;border-radius:4px">${m.n}</span>
+      <span style="font-size:10px;color:${opaque?'var(--faint)':'var(--blue-text)'};font-weight:600">${matchLocalTime(m.d,m.t)}</span>
+      <span style="font-size:9px;color:var(--muted);margin-left:auto">Grupo ${m.g} · ${pc}/${S.players.length} pred.</span>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;padding:12px 16px">
+      <div style="display:flex;flex-direction:column-reverse;align-items:center;gap:3px;text-align:center">
+        <div style="font-size:11px;font-weight:700;color:${opaque?'var(--faint)':'var(--text)'};
+          max-width:80px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m.h}</div>
+        <div style="font-size:24px;line-height:1">${fl(m.h)}</div>
+      </div>
+      <div style="text-align:center">
+        <div style="font-family:var(--fd);font-size:${opaque?26:22}px;
+          color:${opaque?'var(--border)':'var(--faint)'};line-height:1">
+          ${opaque?'? – ?':'vs'}</div>
+        <div style="font-size:9px;color:var(--faint);margin-top:2px">${m.n}</div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:3px;text-align:center">
+        <div style="font-size:24px;line-height:1">${fl(m.a)}</div>
+        <div style="font-size:11px;font-weight:700;color:${opaque?'var(--faint)':'var(--text)'};
+          max-width:80px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m.a}</div>
+      </div>
+    </div>
+  </div>`;
+}
+
+
+function buildUpcomingLocked(matches){
+  if(!matches.length) return '';
+  let h=`<div class="phase-sep" style="margin-top:16px">
+    <div class="phase-line"></div>
+    <div class="phase-badge" style="color:var(--faint);border-color:var(--border)">🔒 Próximos ${matches.length} partidos</div>
+    <div class="phase-line"></div>
+  </div>`;
+  matches.forEach(({m,mi})=>{
+    const pc=S.players.filter((_,pi)=>{const p=S.pred[`${mi}_${pi}`];return p&&p.h!==undefined;}).length;
+    h+=`<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r);margin-bottom:8px;overflow:hidden;opacity:0.42;filter:grayscale(30%);pointer-events:none">
+      <div style="display:flex;align-items:center;gap:7px;padding:7px 13px;border-bottom:1px solid var(--border);background:var(--card2)">
+        <span style="font-size:10px;font-weight:700;color:var(--faint);background:var(--off);border:1px solid var(--border);padding:2px 7px;border-radius:4px">${m.n}</span>
+        <span style="font-size:10px;color:var(--faint)">${m.d} · ${matchLocalTime(m.d,m.t)}</span>
+        <span style="font-size:9px;color:var(--faint);margin-left:auto">${pc}/${S.players.length} pred · Grupo ${m.g}</span>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;padding:12px 16px">
+        <div style="display:flex;flex-direction:column-reverse;align-items:center;gap:3px;text-align:center">
+          <div style="font-size:11px;font-weight:600;color:var(--faint);max-width:80px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m.h}</div>
+          <div style="font-size:22px;line-height:1">${fl(m.h)}</div>
+        </div>
+        <div style="text-align:center">
+          <div style="font-family:var(--fd);font-size:26px;color:var(--border);line-height:1">? – ?</div>
+          <div style="font-size:9px;color:var(--faint);margin-top:2px">POR JUGAR</div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:3px;text-align:center">
+          <div style="font-size:22px;line-height:1">${fl(m.a)}</div>
+          <div style="font-size:11px;font-weight:600;color:var(--faint);max-width:80px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m.a}</div>
+        </div>
+      </div>
+    </div>`;
+  });
+  return h;
 }
 
 
