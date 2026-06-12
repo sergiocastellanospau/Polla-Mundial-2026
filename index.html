@@ -1878,8 +1878,15 @@ function rInfo(){
       <div style="font-size:10px;color:rgba(240,200,102,.45);margin-top:4px">por persona</div>
     </div>
   </div>
-  <div style="font-size:11px;color:var(--muted);margin-bottom:20px;text-align:center">
+  <div style="font-size:11px;color:var(--muted);margin-bottom:6px;text-align:center">
     Los premios aumentan si se unen más jugadores — el bote crece con cada inscripción
+  </div>
+  <div style="background:var(--blue-bg);border:1px solid var(--blue-border);border-radius:var(--r-sm);
+    padding:9px 13px;margin-bottom:20px;display:flex;align-items:flex-start;gap:8px;font-size:11px;color:var(--blue-text)">
+    <span style="font-size:14px;flex-shrink:0">ℹ️</span>
+    <div><strong>Nota sobre el bote:</strong> Del total recaudado se descuentan <strong>$100 USD</strong> 
+    destinados al desarrollo y mantenimiento de esta aplicación. El bote mostrado ya refleja ese descuento 
+    y es el monto real disponible para premios.</div>
   </div>
 
   <!-- INSCRIPCIÓN -->
@@ -2042,6 +2049,10 @@ function rInfo(){
       <div style="display:flex;gap:10px;align-items:flex-start">
         <span style="font-size:18px;flex-shrink:0">💸</span>
         <div><strong>Pago:</strong> El pago de la cuota es condición para participar. Jugadores con pago pendiente aparecen marcados — el admin puede retirarlos si no pagan antes del inicio.</div>
+      </div>
+      <div style="display:flex;gap:10px;align-items:flex-start">
+        <span style="font-size:18px;flex-shrink:0">📱</span>
+        <div><strong>Descuento de app:</strong> Del total recaudado se descuentan <strong>$100 USD</strong> para el desarrollo y mantenimiento de esta plataforma. El bote neto mostrado en toda la app ya incluye ese descuento.</div>
       </div>
       <div style="display:flex;gap:10px;align-items:flex-start">
         <span style="font-size:18px;flex-shrink:0">🌍</span>
@@ -2283,7 +2294,7 @@ function pdfTabla(){
     <div class="pdf-stat-row">
       <div class="pdf-stat-pill"><div class="pdf-stat-val">${S.players.length}</div><div class="pdf-stat-lbl">Jugadores</div></div>
       <div class="pdf-stat-pill"><div class="pdf-stat-val">${played}</div><div class="pdf-stat-lbl">Jugados</div></div>
-      <div class="pdf-stat-pill"><div class="pdf-stat-val">${fmtMoney(S.players.length*S.cuota-100)}</div><div class="pdf-stat-lbl">Bote USD</div></div>
+      <div class="pdf-stat-pill"><div class="pdf-stat-val">${fmtMoney(S.players.length*S.cuota-100)}</div><div class="pdf-stat-lbl">Bote neto USD</div></div>
       <div class="pdf-stat-pill"><div class="pdf-stat-val">${72-played}</div><div class="pdf-stat-lbl">Restan</div></div>
     </div>
     <table><thead><tr><th style="width:44px">Pos.</th><th>Jugador</th><th style="width:70px">Puntos</th><th style="width:100px">Pago</th><th style="width:56px">% máx</th></tr></thead><tbody>${rows}</tbody></table>
