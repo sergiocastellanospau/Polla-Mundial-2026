@@ -1710,7 +1710,7 @@ function renderPlanillaForm(){
     <div class="modal-field" style="margin-bottom:12px">
       <label class="adm-lbl">Partido</label>
       <select id="plan-sel" class="inp" onchange="planMi=+this.value;renderPlanillaForm()">
-        ${GM.map((m,i)=>`<option value="${i}" ${i===mi?"selected":""}>${m.n} · ${m.d} · ${fl(m.h)} ${m.h} vs ${fl(m.a)} ${m.a}</option>`).join("")}
+        ${GM_CHRONO.map(({m,mi:i})=>`<option value="${i}" ${i===mi?"selected":""}>${m.n} · ${m.d} · ${m.t} EST · ${fl(m.h)} ${m.h} vs ${fl(m.a)} ${m.a}</option>`).join("")}
       </select>
     </div>
 
