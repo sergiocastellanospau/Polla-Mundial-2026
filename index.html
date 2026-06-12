@@ -547,10 +547,7 @@ body{padding-bottom:calc(72px + var(--safe-bot))}
 
 </style>
 
-<!-- Firebase SDK -->
-<script type="module">
-  // We use the compat version so no imports/bundler needed
-</script>
+<!-- Firebase SDK (compat = global firebase variable) -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
 </head>
@@ -769,6 +766,11 @@ let fbConnected = false;
 let fbInitialized = false;
 
 function fbInit(){
+  if(typeof firebase === 'undefined'){
+    console.warn('Firebase SDK not available');
+    updFbStatus(false);
+    return;
+  }
   try{
     fbApp = firebase.initializeApp(FB_CONFIG);
     fbDb  = firebase.database();
@@ -870,7 +872,20 @@ function load(){
 }
 load();
 // Firebase connects asynchronously — data syncs via listener above
-fbInit();
+// Firebase init deferred until DOM + scripts fully loaded
+if(typeof firebase !== 'undefined'){
+  fbInit();
+} else {
+  // Scripts not yet loaded — wait for them
+  window.addEventListener('load', function(){
+    if(typeof firebase !== 'undefined'){
+      fbInit();
+    } else {
+      console.warn('Firebase SDK failed to load — running in offline mode');
+      updFbStatus(false);
+    }
+  });
+}
 
 // ── LOCAL CLOCK ──────────────────────────────────────────────
 function updateClock(){
@@ -1146,7 +1161,7 @@ function buildUpcomingWidget(){
 function rTabla(){
   const T=totals(),maxP=Math.max(...T,1);
   const played=Object.keys(S.real).length;
-  const bote=S.players.length*S.cuota;
+  const bote=S.players.length*S.cuota-100; // -$100 manejo de app
   const ranked=[...S.players.map((p,i)=>({p,i,t:T[i]}))].sort((a,b)=>b.t-a.t);
   let h=`<div class="hero">
     <div class="hero-ey">FIFA World Cup 2026</div>
@@ -1484,7 +1499,7 @@ function rRegistro(){
     </div>`;
     return;
   }
-  const paid=S.players.filter(p=>p.paid).length,bote=S.players.length*S.cuota;
+  const paid=S.players.filter(p=>p.paid).length,bote=S.players.length*S.cuota-100;
   document.getElementById("p-registro").innerHTML=`
   <div class="hero" style="margin-bottom:14px">
     <div class="hero-ey">Gestión de participantes — Admin</div><div class="hero-t">REGISTRO</div>
@@ -1805,7 +1820,7 @@ function applyPreds(data){
 // INFO
 // ══════════════════════════════════════════════
 function rInfo(){
-  const bote=S.players.length*S.cuota;
+  const bote=S.players.length*S.cuota-100; // -$100 manejo de app
   // Detect if localStorage has stale data vs DEFAULT_PLAYERS
   const savedRaw=localStorage.getItem("pm26v4");
   const hasSaved=!!savedRaw;
@@ -2268,7 +2283,7 @@ function pdfTabla(){
     <div class="pdf-stat-row">
       <div class="pdf-stat-pill"><div class="pdf-stat-val">${S.players.length}</div><div class="pdf-stat-lbl">Jugadores</div></div>
       <div class="pdf-stat-pill"><div class="pdf-stat-val">${played}</div><div class="pdf-stat-lbl">Jugados</div></div>
-      <div class="pdf-stat-pill"><div class="pdf-stat-val">${fmtMoney(S.players.length*S.cuota)}</div><div class="pdf-stat-lbl">Bote USD</div></div>
+      <div class="pdf-stat-pill"><div class="pdf-stat-val">${fmtMoney(S.players.length*S.cuota-100)}</div><div class="pdf-stat-lbl">Bote USD</div></div>
       <div class="pdf-stat-pill"><div class="pdf-stat-val">${72-played}</div><div class="pdf-stat-lbl">Restan</div></div>
     </div>
     <table><thead><tr><th style="width:44px">Pos.</th><th>Jugador</th><th style="width:70px">Puntos</th><th style="width:100px">Pago</th><th style="width:56px">% máx</th></tr></thead><tbody>${rows}</tbody></table>
@@ -2587,7 +2602,7 @@ function rBuscarDetalle(pi, el){
 
   // Stats
   let exactos=0, correctos=0, fallos=0, sinPred=0, totalPts=T[pi];
-  const matchRows = GM.map((m,mi)=>{
+  const matchRows = GM_CHRONO.map(({m,mi})=>{
     const r = S.real[String(mi)];
     const pr = S.pred[`${mi}_${pi}`];
     const hasR = r && r.h!==undefined && r.a!==undefined;
@@ -2761,9 +2776,11 @@ function rMiPredPicker(el){
     <div class="hero-s">Selecciona tu nombre para ingresar tus predicciones</div>
   </div>
   <div class="card">
-    <div class="card-title"><i class="ti ti-user"></i>¿Quién eres?</div>
+    <div class="card-title"><i class="ti ti-user"></i>${isAdmin ? "Selecciona jugador para editar" : "Ver pronósticos por jugador"}</div>
     <p style="font-size:12px;color:var(--muted);margin-bottom:14px">
-      Toca tu nombre. Solo puedes cambiar pronósticos <strong>antes de que empiece cada partido</strong>.
+      ${isAdmin
+        ? "Selecciona un jugador para ver y editar sus pronósticos."
+        : "Selecciona un jugador para ver sus pronósticos. <strong>Solo el administrador puede editarlos.</strong>"}
     </p>
     <div style="display:flex;flex-direction:column;gap:7px">
       ${S.players.map((p,i)=>`
@@ -2852,7 +2869,11 @@ function rMiPredForm(el){
             <div style="font-size:11px;font-weight:700;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${m.a}</div>
           </div>
         </div>
-        ${isMatchLocked(m)
+        ${!isAdmin
+          ? `<div style="background:var(--off);border:1px solid var(--border);border-radius:var(--r-sm);padding:8px 12px;text-align:center;font-size:11px;color:var(--muted)">
+              🔒 Solo el admin puede editar pronósticos
+            </div>`
+          : isMatchLocked(m)
           ? `<div style="background:var(--red-bg);border:1px solid var(--red-border);border-radius:var(--r-sm);padding:8px 12px;text-align:center;font-size:12px;color:var(--red-text);font-weight:600">
               ⏰ Pronósticos cerrados — partido a punto de iniciar
             </div>`
@@ -2935,6 +2956,7 @@ function rMiPredForm(el){
 }
 
 function saveMyPred(mi, pi){
+  if(!isAdmin){ toast("⛔ Solo el administrador puede ingresar pronósticos","err"); return; }
   const h = document.getElementById(`mph-${mi}`)?.value;
   const a = document.getElementById(`mpa-${mi}`)?.value;
   if(h===""||h===undefined||a===""||a===undefined){
