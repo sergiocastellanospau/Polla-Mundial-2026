@@ -3409,11 +3409,18 @@ function showLogin(cb){
 }
 
 function _doLogin(){
-  _ensureCreds();
   const u=(document.getElementById('_pmu')?.value||'').trim().toLowerCase();
   const p=document.getElementById('_pmp')?.value||'';
   const rem=document.getElementById('_pmrem')?.checked;
   const err=document.getElementById('_pmerr');
+  // Always rebuild creds fresh before checking
+  if(!S.creds) S.creds={};
+  S.players.forEach((pl,pi)=>{
+    const un=_un(pl.name);
+    if(!S.creds[un]||!S.creds[un].pw){
+      S.creds[un]={pi,pw:_h('polla2026'),chg:true,ll:null};
+    }
+  });
   const cr=S.creds[u];
   if(!cr||cr.pw!==_h(p)){err.style.display='block';return;}
   err.style.display='none';
