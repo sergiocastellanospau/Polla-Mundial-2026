@@ -984,6 +984,12 @@ function totals(){
 const RENDERS={tabla:rTabla,partidos:rPartidos,bracket:rBracket,jugador:rJugador,registro:rRegistro,planilla:rPlanilla,buscar:rBuscar,mipred:rMiPred,mundial:rMundial,info:rInfo,admin:rAdmin};
 function go(tab){
   if(tab==="admin"&&!isAdmin){showLock(tab);return;}
+  // When leaving mipred, clear player session
+  const currentTab=document.querySelector('.panel.on')?.id?.replace('p-','');
+  if(currentTab==='mipred' && tab!=='mipred' && !isAdmin){
+    currentPlayer=null;
+    myPlayerIndex=null;
+  }
   // Reset buscar detail view when leaving
   if(tab!=="buscar")buscarPi=null;
   document.querySelectorAll(".nb,.bn-btn").forEach(b=>b.classList.toggle("on",(b.getAttribute("onclick")||"").includes("'"+tab+"'")));
@@ -2870,12 +2876,71 @@ function tryPlayerPin(){
   // Success
   currentPlayer = {pi, name: S.players[pi].name};
   myPlayerIndex = pi;
+  // First time with default PIN? Ask them to set their own
+  if(!S.playerPins || !S.playerPins[pi]){
+    closeModal();
+    _askNewPin(pi);
+    return;
+  }
   closeModal();
-  // Activate panel directly without calling rMiPred (avoid loop)
+  _enterMiPred();
+}
+
+function _enterMiPred(){
   document.querySelectorAll('.nb,.bn-btn').forEach(b=>b.classList.toggle('on',(b.getAttribute('onclick')||'').includes("'mipred'")));
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('on'));
   const _el=document.getElementById('p-mipred');
   if(_el){ _el.classList.add('on'); rMiPredForm(_el); }
+}
+
+function _askNewPin(pi){
+  // Build modal using the existing showLock modal pattern
+  document.getElementById("modal-root").innerHTML=`
+  <div class="overlay" style="z-index:400">
+    <div class="modal" style="max-width:320px;text-align:center">
+      <div style="font-size:32px;margin-bottom:8px">🔑</div>
+      <div style="font-size:16px;font-weight:700;margin-bottom:4px">Crea tu PIN personal</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:16px">
+        Primera vez. Crea un PIN propio para próximos ingresos.
+      </div>
+      <input class="inp" type="password" id="np1" placeholder="Tu nuevo PIN"
+        inputmode="numeric" maxlength="10" style="text-align:center;margin-bottom:8px">
+      <input class="inp" type="password" id="np2" placeholder="Confirma el PIN"
+        inputmode="numeric" maxlength="10" style="text-align:center;margin-bottom:8px">
+      <div style="color:var(--red-text);font-size:11px;min-height:16px;margin-bottom:10px" id="nperr"></div>
+      <div style="display:flex;gap:8px;justify-content:center">
+        <button class="btn btn-ghost btn-sm" onclick="_skipPin()">Después</button>
+        <button class="btn btn-gold" id="savepinbtn">Guardar PIN</button>
+      </div>
+    </div>
+  </div>`;
+  setTimeout(()=>{
+    document.getElementById('np1')?.focus();
+    const btn=document.getElementById('savepinbtn');
+    if(btn) btn.onclick=()=>_savePin(pi);
+    const np2=document.getElementById('np2');
+    if(np2) np2.addEventListener('keydown',e=>{if(e.key==='Enter')_savePin(pi);});
+  },50);
+}
+
+function _savePin(pi){
+  const p1=(document.getElementById('np1')?.value||'').trim();
+  const p2=(document.getElementById('np2')?.value||'').trim();
+  const err=document.getElementById('nperr');
+  if(!p1){err.textContent='Ingresa un PIN';return;}
+  if(p1!==p2){err.textContent='Los PINs no coinciden';return;}
+  if(!S.playerPins)S.playerPins={};
+  S.playerPins[pi]=p1;
+  save();
+  closeModal();
+  toast('✓ PIN guardado');
+  _enterMiPred();
+}
+
+function _skipPin(){
+  // Mark as seen so they don't get asked again this session
+  closeModal();
+  _enterMiPred();
 }
 
 function rMiPredPicker(el){
@@ -2979,7 +3044,7 @@ function rMiPredForm(el){
             <div style="font-size:11px;font-weight:700;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${m.a}</div>
           </div>
         </div>
-        ${!isAdmin
+        ${(!isAdmin && (!currentPlayer || currentPlayer.pi !== pi))
           ? `<div style="background:var(--off);border:1px solid var(--border);border-radius:var(--r-sm);padding:8px 12px;text-align:center;font-size:11px;color:var(--muted)">
               🔒 Solo el admin puede editar pronósticos
             </div>`
@@ -3066,35 +3131,27 @@ function rMiPredForm(el){
 }
 
 function saveMyPred(mi, pi){
-  // Auth check
   if(!isAdmin){
+    // Must be logged in as this player
     if(!currentPlayer || currentPlayer.pi !== pi){ return; }
-    // Block if match already played
+    // Block if match already has result
     const _r=S.real[String(mi)];
     if(_r&&_r.h!==undefined){ toast("⛔ Este partido ya se jugó","err"); return; }
     // Block if less than 1 hour to kickoff
     if(isMatchLocked(GM[mi])){ toast("⏰ Cerrado — menos de 1 hora para el partido","err"); return; }
   }
-  const h = document.getElementById(`mph-${mi}`)?.value;
-  const a = document.getElementById(`mpa-${mi}`)?.value;
-  if(h===""||h===undefined||a===""||a===undefined){
+  const h=document.getElementById(`mph-${mi}`)?.value;
+  const a=document.getElementById(`mpa-${mi}`)?.value;
+  if(h===''||h===undefined||a===''||a===undefined){
     toast("Ingresa los dos marcadores","err"); return;
   }
-  // BLOCK if match already has a real result
-  const r = S.real[String(mi)];
-  if(r && r.h!==undefined && r.a!==undefined){
-    toast("⛔ Este partido ya se jugó — no puedes cambiar el pronóstico","err"); return;
-  }
-  // BLOCK if match starts in less than 10 minutes (local time)
-  const m = GM[mi];
-  if(isMatchLocked(m)){
-    toast("⏰ Pronósticos cerrados — faltan menos de 10 min para el partido","err"); return;
-  }
-  S.pred[`${mi}_${pi}`] = {h:+h, a:+a};
+  const m=GM[mi];
+  S.pred[`${mi}_${pi}`]={h:+h,a:+a};
   save();
-  toast(`✓ Pronóstico guardado: ${m.h} ${+h} – ${+a} ${m.a}`);
+  toast(`✓ Pronóstico: ${m.h} ${+h}–${+a} ${m.a}`);
   rMiPredForm(document.getElementById("p-mipred"));
 }
+
 
 // Returns true if match is locked (10 min before kickoff or already played)
 function isMatchLocked(m){
