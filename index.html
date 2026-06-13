@@ -546,35 +546,32 @@ body{padding-bottom:calc(72px + var(--safe-bot))}
 .ev-minute{font-size:12px;font-weight:700;color:var(--red);letter-spacing:.03em}
 
 
-/* ── LOGIN SCREEN ──────────────────────────────────────────── */
-.login-wrap{min-height:100vh;display:flex;flex-direction:column;
+/* ── LOGIN ──────────────────────────────────────────────── */
+.login-wrap{position:fixed;inset:0;z-index:700;display:flex;flex-direction:column;
   align-items:center;justify-content:center;padding:24px;
-  background:linear-gradient(160deg,var(--navy) 0%,#1a2d4a 100%)}
+  background:linear-gradient(160deg,#0D1B2A 0%,#1a2d4a 100%)}
 .login-card{background:var(--card);border-radius:var(--r-lg);
   padding:32px 28px;width:100%;max-width:360px;box-shadow:0 8px 40px rgba(0,0,0,.35)}
 .login-logo{text-align:center;margin-bottom:24px}
 .login-title{font-family:var(--fd);font-size:28px;color:var(--gold);letter-spacing:.04em}
 .login-sub{font-size:11px;color:var(--muted);margin-top:4px}
 .login-field{margin-bottom:16px}
-.login-label{font-size:11px;font-weight:700;color:var(--muted);
-  letter-spacing:.06em;text-transform:uppercase;display:block;margin-bottom:6px}
-.login-inp{width:100%;padding:12px 14px;border-radius:var(--r-sm);
-  border:1.5px solid var(--border);background:var(--off);color:var(--text);
-  font-size:15px;font-family:var(--fb);box-sizing:border-box;outline:none;
-  transition:border-color .2s}
+.login-label{font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.06em;
+  text-transform:uppercase;display:block;margin-bottom:6px}
+.login-inp{width:100%;padding:12px 14px;border-radius:var(--r-sm);border:1.5px solid var(--border);
+  background:var(--off);color:var(--text);font-size:15px;font-family:var(--fb);
+  box-sizing:border-box;outline:none;transition:border-color .2s}
 .login-inp:focus{border-color:var(--gold)}
-.login-btn{width:100%;padding:14px;border-radius:var(--r-sm);border:none;
-  background:var(--gold);color:var(--navy);font-size:15px;font-weight:700;
-  font-family:var(--fb);cursor:pointer;margin-top:8px;letter-spacing:.02em;
-  transition:opacity .15s}
+.login-btn{width:100%;padding:14px;border-radius:var(--r-sm);border:none;background:var(--gold);
+  color:var(--navy);font-size:15px;font-weight:700;font-family:var(--fb);cursor:pointer;
+  margin-top:8px;letter-spacing:.02em;transition:opacity .15s}
 .login-btn:active{opacity:.8}
-.login-err{background:var(--red-bg);border:1px solid var(--red-border);
-  border-radius:var(--r-sm);padding:10px 14px;font-size:12px;
-  color:var(--red-text);margin-bottom:14px;display:none}
+.login-err{background:var(--red-bg);border:1px solid var(--red-border);border-radius:var(--r-sm);
+  padding:10px 14px;font-size:12px;color:var(--red-text);margin-bottom:14px;display:none}
 .login-remember{display:flex;align-items:center;gap:8px;margin-top:14px;
   font-size:12px;color:var(--muted)}
-.change-pw-overlay{position:fixed;inset:0;z-index:600;
-  background:rgba(13,27,42,.92);display:flex;align-items:center;justify-content:center;padding:24px}
+.cpw-overlay{position:fixed;inset:0;z-index:800;display:flex;align-items:center;
+  justify-content:center;padding:24px;background:rgba(13,27,42,.92)}
 
 </style>
 
@@ -818,8 +815,6 @@ function fbInit(){
         const officialReal = {"0":{h:2,a:0}}; // México 2-0 Sudáfrica (oficial)
         S.real = Object.assign(officialReal, data.real||{});
         S.pred           = data.pred           || {};
-        S.predTs         = data.predTs         || {};
-        S.creds          = data.creds          || S.creds || {};
         S.ko             = data.ko             || {};
         S.koPred         = data.koPred         || {};
         S.deadline       = data.deadline       || S.deadline;
@@ -925,6 +920,33 @@ if(typeof firebase !== 'undefined'){
 }
 
 // ── LOCAL CLOCK ──────────────────────────────────────────────
+function updateClock(){
+  const el = document.getElementById("local-clock");
+  if(!el) return;
+  const now = new Date();
+  const time = now.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"});
+  const tzShort = now.toLocaleTimeString([],{timeZoneName:"short"}).split(" ").pop();
+  el.textContent = time + " " + tzShort;
+}
+updateClock();
+setInterval(updateClock, 1000);
+
+
+
+// Restore which player this device belongs to
+try{
+  const saved = localStorage.getItem("pm26_mypi");
+  if(saved){
+    const [idx, name] = saved.split("|");
+    const pi = parseInt(idx);
+    if(!isNaN(pi) && pi < S.players.length && S.players[pi]?.name === name){
+      myPlayerIndex = pi;
+      myPlayerName  = name;
+    }
+  }
+}catch(e){}
+
+// SCORING — Grupos: 3=resultado,5=exacto | KO: 3/5 normal + 7=empate+ganadorPen / 10=exacto+ganadorPen
 function calcPts(rh,ra,ph,pa,isKO,rPenW,pPenW){
   if([rh,ra,ph,pa].some(x=>x===undefined||x===null||x===""))return null;
   rh=+rh;ra=+ra;ph=+ph;pa=+pa;
@@ -1418,7 +1440,7 @@ function rJugador(){
   const T=totals(),ranked=[...T].sort((a,b)=>b-a);
   const rank=ranked.indexOf(T[activeP])+1,p=S.players[activeP];
   let rows="";
-  GM_CHRONO.forEach(({m,mi})=>{
+  GM.forEach((m,mi)=>{
     const r=S.real[String(mi)],pr=S.pred[`${mi}_${activeP}`];
     const v=r&&pr?calcPts(r.h,r.a,pr.h,pr.a,false):null;
     const cls=v===null?"pt-n":v===0?"pt-0":v===3?"pt-3":v===5?"pt-5":"pt-7";
@@ -2079,16 +2101,12 @@ function rInfo(){
 // ══════════════════════════════════════════════
 // ADMIN
 // ══════════════════════════════════════════════
-
-// ════════════════════════════════════════════════════════════
-//  PANEL DE CONTROL DE USUARIOS (solo admin)
-// ════════════════════════════════════════════════════════════
 function rAdmin(){
   document.getElementById("p-admin").innerHTML=`
   <div class="adm-section">
     <div class="adm-sec-title"><i class="ti ti-shield-lock"></i>Control de usuarios</div>
     <div style="font-size:12px;color:var(--muted);margin-bottom:12px">
-      Gestiona accesos, contraseñas y actividad de cada jugador.
+      Contraseñas, última conexión y actividad de cada jugador.
     </div>
     <div id="users-panel">${buildUsersPanel()}</div>
   </div>
@@ -2330,7 +2348,7 @@ function pdfJugador(pi){
   const ranked=[...T].sort((a,b)=>b-a),rank=ranked.indexOf(T[pi])+1;
   const today=new Date().toLocaleDateString("es",{day:"numeric",month:"long",year:"numeric"});
   const played=Object.keys(S.real).length;
-  const rows=GM_CHRONO.map(({m,mi})=>{
+  const rows=GM.map((m,mi)=>{
     const r=S.real[String(mi)],pr=S.pred[`${mi}_${pi}`];
     const v=r&&pr?calcPts(r.h,r.a,pr.h,pr.a,false):null;
     const pstyle=v===null?"background:#F9F8F5;color:#9CA3AF":v===0?"background:#FFF1F2;color:#BE123C":v===3?"background:#EFF6FF;color:#1D4ED8":v===5?"background:#F0FDF4;color:#15803D":"background:#FFFBEB;color:#92400E";
@@ -2784,180 +2802,186 @@ function setBFilt(g){
 
 
 // ════════════════════════════════════════════════════════════
-//  MI PRONÓSTICO — Login + vista inteligente por fecha
+//  MI PRONÓSTICO — cada jugador ingresa sus propios datos
 // ════════════════════════════════════════════════════════════
+let myPlayerIndex = null; // which player this device is
+let myPlayerName  = null;
 
 function rMiPred(){
   const el = document.getElementById("p-mipred");
   if(!el) return;
-
-  // Not logged in → show login immediately
+  // Login gate — only for Mi Pronóstico tab
   if(!currentPlayer && !isAdmin){
-    showLogin(()=>{ rMiPred(); });
+    showLogin(()=>rMiPred());
     return;
   }
-
-  // Admin logged in — show player picker
+  // Admin without player selected — show picker
   if(isAdmin && !currentPlayer){
     rMiPredAdminPicker(el);
     return;
   }
-
-  // Player logged in — show smart form
-  const pi = isAdmin ? (currentPlayer?.pi ?? 0) : currentPlayer.pi;
+  const pi = currentPlayer.pi;
   rMiPredForm(el, pi);
 }
 
 function rMiPredAdminPicker(el){
-  el.innerHTML = `
+  el.innerHTML=`
   <div class="hero" style="margin-bottom:16px">
-    <div class="hero-ey">Admin — Ver/editar pronósticos</div>
+    <div class="hero-ey">Admin · Ver/editar pronósticos</div>
     <div class="hero-t">SELECCIONA JUGADOR</div>
   </div>
   <div class="card">
-    <div class="card-title"><i class="ti ti-users"></i>¿De qué jugador quieres ver los pronósticos?</div>
+    <div class="card-title"><i class="ti ti-users"></i>¿De qué jugador?</div>
     <div style="display:flex;flex-direction:column;gap:7px;margin-top:12px">
       ${S.players.map((p,i)=>`
         <button onclick="currentPlayer={pi:${i},username:'admin',name:'${p.name}'};rMiPred()"
-          style="display:flex;align-items:center;gap:12px;padding:11px 14px;
-          border-radius:var(--r);border:1.5px solid var(--border);background:var(--card);
-          cursor:pointer;text-align:left;font-family:var(--fb)">
+          style="display:flex;align-items:center;gap:12px;padding:11px 14px;border-radius:var(--r);
+          border:1.5px solid var(--border);background:var(--card);cursor:pointer;
+          text-align:left;font-family:var(--fb)">
           <div style="width:36px;height:36px;border-radius:50%;background:${AVC[i%AVC.length]};
             display:flex;align-items:center;justify-content:center;font-family:var(--fd);
             font-size:14px;color:#fff;flex-shrink:0">${ini(p.name)}</div>
           <div style="flex:1">
-            <div style="font-size:13px;font-weight:700;color:var(--text)">${p.name}</div>
-            <div style="font-size:10px;color:var(--muted);margin-top:1px">
-              ${p.paid?'<span style="color:var(--green-text)">✓ Pagó</span>':'<span style="color:var(--red-text)">⚠ Pendiente</span>'}
-            </div>
+            <div style="font-size:13px;font-weight:700">${p.name}</div>
           </div>
           <i class="ti ti-chevron-right" style="color:var(--faint)"></i>
+        </button>`).join('')}
+    </div>
+  </div>`;
+}
+
+function rMiPredPicker(el){
+  el.innerHTML = `
+  <div class="hero" style="margin-bottom:16px">
+    <div class="hero-ey">FIFA World Cup 2026</div>
+    <div class="hero-t">MIS PRONÓSTICOS</div>
+    <div class="hero-s">Selecciona tu nombre para ingresar tus predicciones</div>
+  </div>
+  <div class="card">
+    <div class="card-title"><i class="ti ti-user"></i>${isAdmin ? "Selecciona jugador para editar" : "Ver pronósticos por jugador"}</div>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:14px">
+      ${isAdmin
+        ? "Selecciona un jugador para ver y editar sus pronósticos."
+        : "Selecciona un jugador para ver sus pronósticos. <strong>Solo el administrador puede editarlos.</strong>"}
+    </p>
+    <div style="display:flex;flex-direction:column;gap:7px">
+      ${S.players.map((p,i)=>`
+        <button onclick="selectMyPlayer(${i})"
+          style="display:flex;align-items:center;gap:12px;padding:12px 14px;
+          border-radius:var(--r);border:1.5px solid var(--border);background:var(--card);
+          cursor:pointer;text-align:left;transition:all .15s;font-family:var(--fb)"
+          onmouseover="this.style.borderColor='var(--gold)'"
+          onmouseout="this.style.borderColor='var(--border)'">
+          <div style="width:38px;height:38px;border-radius:50%;background:${AVC[i%AVC.length]};
+            display:flex;align-items:center;justify-content:center;font-family:var(--fd);
+            font-size:15px;color:#fff;flex-shrink:0">${ini(p.name)}</div>
+          <div style="flex:1">
+            <div style="font-size:14px;font-weight:700;color:var(--text)">${p.name}</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:2px">
+              ${p.paid
+                ? '<span style="color:var(--green-text)">✓ Pago confirmado</span>'
+                : '<span style="color:var(--red-text)">⚠ Pago pendiente</span>'}
+            </div>
+          </div>
+          <i class="ti ti-chevron-right" style="color:var(--faint);font-size:18px"></i>
         </button>`).join("")}
     </div>
   </div>`;
 }
 
-function rMiPredForm(el, pi){
-  const p = S.players[pi];
-  if(!p){ el.innerHTML='<div class="empty">Jugador no encontrado</div>'; return; }
+function selectMyPlayer(pi){
+  myPlayerIndex = pi;
+  myPlayerName  = S.players[pi].name;
+  // Save selection in localStorage so they don't pick every time
+  try{ localStorage.setItem("pm26_mypi", pi + "|" + myPlayerName); }catch(e){}
+  rMiPredForm(document.getElementById("p-mipred"));
+}
 
-  const T = totals();
+function rMiPredForm(el){
+  const pi = myPlayerIndex;
+  const p  = S.players[pi];
+  const T  = totals();
   const ranked = [...T].sort((a,b)=>b-a);
-  const rank = ranked.indexOf(T[pi])+1;
-  const canEdit = isAdmin || (currentPlayer?.pi === pi);
+  const rank   = ranked.indexOf(T[pi])+1;
+  const now    = new Date();
 
-  // ── Split matches into: active/future vs past ─────────────
-  const EDT=4;
-  const MO={Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
-  function kms(m){
-    try{
-      const[mo,d]=m.d.split(" ");const[hh,mm]=m.t.split(":");
-      return Date.UTC(2026,MO[mo],parseInt(d),parseInt(hh)+EDT,parseInt(mm));
-    }catch(e){return Infinity;}
-  }
-  const now = Date.now();
-  const LOCK_MS = 60*60*1000; // 1 hour before kickoff
-
-  const upcoming=[], past=[];
-  GM_CHRONO.forEach(({m,mi})=>{
+  // Upcoming = no real result yet AND not locked
+  // Use chronological order (GM_CHRONO is pre-sorted by kickoff time)
+  const upcoming = GM_CHRONO.filter(({mi})=>{
     const r = S.real[String(mi)];
-    const hasResult = r && r.h!==undefined && r.a!==undefined;
-    const kickoff = kms(m);
-    if(hasResult || kickoff <= now - 90*60*1000){
-      past.push({m,mi});
-    } else {
-      upcoming.push({m,mi,kickoff});
-    }
+    return !r || r.h===undefined || r.a===undefined;
+  });
+  const played = GM_CHRONO.filter(({mi})=>{
+    const r = S.real[String(mi)];
+    return r && r.h!==undefined && r.a!==undefined;
   });
 
-  // ── Build upcoming rows ────────────────────────────────────
-  let upcomingRows = upcoming.map(({m,mi,kickoff})=>{
-    const key=`${mi}_${pi}`;
-    const pr=S.pred[key]||{};
-    const ts=S.predTs?.[key];
-    const hasP=pr.h!==undefined&&pr.a!==undefined;
-    const locked = !isAdmin && kickoff <= now + LOCK_MS;
-    const inPlay  = kickoff <= now && kickoff > now - 90*60*1000;
-
-    return `<div style="background:var(--card2);border:1px solid ${inPlay?'var(--red)':'var(--border)'};
-      border-radius:var(--r);margin-bottom:8px;overflow:hidden">
-      <div style="display:flex;align-items:center;gap:7px;padding:7px 12px;
-        border-bottom:1px solid var(--border);background:${inPlay?'rgba(232,54,93,.08)':'var(--off)'}">
+  let upcomingRows = upcoming.slice(0,10).map(({m,mi})=>{
+    const key = `${mi}_${pi}`;
+    const pr  = S.pred[key]||{};
+    const hasP = pr.h!==undefined && pr.a!==undefined;
+    return `<div style="background:var(--card2);border:1px solid var(--border);border-radius:var(--r);
+      margin-bottom:8px;overflow:hidden">
+      <div style="display:flex;align-items:center;gap:7px;padding:7px 12px;border-bottom:1px solid var(--border)">
         <span style="font-size:10px;font-weight:700;color:var(--blue-text);background:var(--blue-bg);
           border:1px solid var(--blue-border);padding:2px 7px;border-radius:4px">${m.n}</span>
-        <span style="font-size:10px;color:var(--muted)">${m.d} · ${matchLocalTime(m.d,m.t)}</span>
+        <span style="font-size:10px;color:var(--muted)">${m.d} · ${m.t} EST</span>
         <span style="font-size:10px;color:var(--faint);margin-left:auto">${m.city}</span>
-        ${inPlay?`<span style="font-size:9px;font-weight:700;color:var(--red);background:rgba(232,54,93,.12);
-          padding:2px 7px;border-radius:10px">🔴 En juego</span>`:''}
-        ${hasP&&!inPlay?`<span style="font-size:9px;font-weight:700;color:var(--green-text);
-          background:var(--green-bg);border:1px solid var(--green-border);padding:2px 6px;border-radius:4px">✓</span>`:''}
+        ${hasP?`<span style="font-size:9px;font-weight:700;color:var(--green-text);background:var(--green-bg);
+          border:1px solid var(--green-border);padding:2px 6px;border-radius:4px">✓ Guardado</span>`:""}
       </div>
       <div style="padding:10px 12px">
         <div style="display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;margin-bottom:10px">
-          <div style="text-align:center">
+          <div style="display:flex;flex-direction:column-reverse;align-items:center;gap:3px;text-align:center">
+            <div style="font-size:11px;font-weight:700;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${m.h}</div>
             <div style="font-size:24px;line-height:1">${fl(m.h)}</div>
-            <div style="font-size:11px;font-weight:700;margin-top:3px">${m.h}</div>
           </div>
-          <div style="text-align:center">
-            ${canEdit&&!locked&&!inPlay
-              ? `<div style="display:flex;gap:5px;align-items:center">
-                  <input type="number" min="0" max="99" id="mph-${mi}" value="${pr.h!==undefined?pr.h:''}"
-                    placeholder="0" class="sc-inp" style="width:46px;height:44px;font-size:18px">
-                  <span style="font-size:20px;font-weight:700;color:var(--border)">–</span>
-                  <input type="number" min="0" max="99" id="mpa-${mi}" value="${pr.a!==undefined?pr.a:''}"
-                    placeholder="0" class="sc-inp" style="width:46px;height:44px;font-size:18px">
-                </div>
-                <div style="font-size:9px;color:var(--faint);margin-top:4px;letter-spacing:.06em">MI PRONÓSTICO</div>`
-              : hasP
-              ? `<div style="font-family:var(--fd);font-size:32px;color:var(--navy);line-height:1">${pr.h}–${pr.a}</div>
-                 <div style="font-size:9px;color:var(--muted);margin-top:3px">mi pronóstico</div>`
-              : `<div style="font-family:var(--fd);font-size:24px;color:var(--faint)">–</div>`
-            }
+          <div style="display:flex;flex-direction:column;align-items:center;gap:5px">
+            <div style="display:flex;gap:5px;align-items:center">
+              <input type="number" min="0" max="99" id="mph-${mi}" value="${pr.h!==undefined?pr.h:""}"
+                placeholder="0" class="sc-inp" style="width:46px;height:44px;font-size:18px">
+              <span style="font-size:20px;font-weight:700;color:var(--border)">–</span>
+              <input type="number" min="0" max="99" id="mpa-${mi}" value="${pr.a!==undefined?pr.a:""}"
+                placeholder="0" class="sc-inp" style="width:46px;height:44px;font-size:18px">
+            </div>
+            <div style="font-size:9px;color:var(--faint);letter-spacing:.06em">MI PRONÓSTICO</div>
           </div>
-          <div style="text-align:center">
+          <div style="display:flex;flex-direction:column;align-items:center;gap:3px;text-align:center">
             <div style="font-size:24px;line-height:1">${fl(m.a)}</div>
-            <div style="font-size:11px;font-weight:700;margin-top:3px">${m.a}</div>
+            <div style="font-size:11px;font-weight:700;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${m.a}</div>
           </div>
         </div>
-        ${ts?`<div style="font-size:9px;color:var(--faint);text-align:center;margin-bottom:6px">
-          🕐 Registrado el ${fmtTs(ts)}</div>`:''}
-        ${canEdit&&!locked&&!inPlay
-          ? `<button onclick="saveMyPred(${mi},${pi})" class="btn btn-gold" style="width:100%;justify-content:center">
-              <i class="ti ti-check"></i>${hasP?"Actualizar":"Guardar pronóstico"}
+        ${!isAdmin
+          ? `<div style="background:var(--off);border:1px solid var(--border);border-radius:var(--r-sm);padding:8px 12px;text-align:center;font-size:11px;color:var(--muted)">
+              🔒 Solo el admin puede editar pronósticos
+            </div>`
+          : isMatchLocked(m)
+          ? `<div style="background:var(--red-bg);border:1px solid var(--red-border);border-radius:var(--r-sm);padding:8px 12px;text-align:center;font-size:12px;color:var(--red-text);font-weight:600">
+              ⏰ Pronósticos cerrados — partido a punto de iniciar
+            </div>`
+          : `<button onclick="saveMyPred(${mi},${pi})" class="btn btn-gold" style="width:100%;justify-content:center">
+              <i class="ti ti-check"></i>${hasP?"Actualizar pronóstico":"Guardar pronóstico"}
             </button>`
-          : locked&&!isAdmin
-          ? `<div style="background:var(--amber-bg);border:1px solid var(--amber-border);
-              border-radius:var(--r-sm);padding:7px 12px;text-align:center;font-size:11px;color:var(--amber-text);font-weight:600">
-              ⏰ Cierre en menos de 1 hora</div>`
-          : inPlay&&!isAdmin
-          ? `<div style="background:var(--red-bg);border:1px solid var(--red-border);
-              border-radius:var(--r-sm);padding:7px 12px;text-align:center;font-size:11px;color:var(--red-text);font-weight:600">
-              🔴 Partido en curso — pronósticos cerrados</div>`
-          : ''
         }
       </div>
     </div>`;
-  }).join('');
+  }).join("");
 
-  // ── Build past rows (collapsible) ─────────────────────────
-  let pastRows = past.map(({m,mi})=>{
-    const key=`${mi}_${pi}`;
-    const pr=S.pred[key]||{};
-    const r=S.real[String(mi)]||{};
-    const hasP=pr.h!==undefined&&pr.a!==undefined;
-    const hasR=r.h!==undefined&&r.a!==undefined;
-    const ts=S.predTs?.[key];
-    const v=hasR&&hasP?calcPts(r.h,r.a,pr.h,pr.a,false):null;
-    const cls=v===null?'pt-n':v===0?'pt-0':v===3?'pt-3':v===5?'pt-5':'pt-7';
+  // Played matches with my predictions
+  let playedRows = played.map(({m,mi})=>{
+    const key = `${mi}_${pi}`;
+    const pr  = S.pred[key]||{};
+    const r   = S.real[String(mi)];
+    const v   = r&&pr.h!==undefined?calcPts(r.h,r.a,pr.h,pr.a,false):null;
+    const cls = v===null?"pt-n":v===0?"pt-0":v===3?"pt-3":v===5?"pt-5":"pt-7";
     return `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)">
-      <span style="font-size:10px;color:var(--muted);min-width:28px">${m.n}</span>
-      <div style="flex:1;font-size:11px">${fl(m.h)} ${m.h} <span style="color:var(--faint)">vs</span> ${fl(m.a)} ${m.a}</div>
-      <span style="font-size:11px;color:var(--muted)">${hasP?pr.h+'–'+pr.a:'–'}</span>
-      <span style="font-size:11px;font-weight:700;color:var(--navy);min-width:30px;text-align:center">${hasR?r.h+'–'+r.a:'?'}</span>
-      <span class="ptag ${cls}">${v!==null?v+'p':'–'}</span>
-    </div>
-    ${ts?`<div style="font-size:8px;color:var(--faint);padding-left:36px;padding-bottom:4px">🕐 ${fmtTs(ts)}${S.predTs?.[key+'_edited']?' · Editado por admin':''}</div>`:''}`;
-  }).join('');
+      <div style="font-size:10px;color:var(--muted);min-width:28px">${m.n}</div>
+      <div style="flex:1;font-size:12px">${fl(m.h)} ${m.h} <span style="color:var(--faint)">vs</span> ${fl(m.a)} ${m.a}</div>
+      <div style="font-size:11px;color:var(--muted)">${pr.h!==undefined?pr.h+"–"+pr.a:"–"}</div>
+      <div style="font-size:11px;font-weight:700;color:var(--navy);min-width:30px;text-align:center">${r?r.h+"–"+r.a:"?"}</div>
+      <span class="ptag ${cls}">${v!==null?v+"p":"–"}</span>
+    </div>`;
+  }).join("");
 
   el.innerHTML = `
   <!-- Header jugador -->
@@ -2980,162 +3004,178 @@ function rMiPredForm(el, pi){
     </div>
   </div>
 
-  ${(isAdmin||currentPlayer)?`<div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
-    ${isAdmin?`<button onclick="currentPlayer=null;rMiPred()" class="btn btn-ghost btn-sm">
-      <i class="ti ti-arrow-left"></i>Cambiar jugador</button>`:''}
-    ${!isAdmin?`<button onclick="playerLogout()" class="btn btn-ghost btn-sm">
-      <i class="ti ti-logout"></i>Cerrar sesión</button>`:''}
-  </div>`:''}
+  <button onclick="myPlayerIndex=null;myPlayerName=null;localStorage.removeItem('pm26_mypi');rMiPred()"
+    style="font-size:12px;color:var(--muted);background:none;border:none;cursor:pointer;
+    margin-bottom:12px;display:flex;align-items:center;gap:4px">
+    <i class="ti ti-refresh" style="font-size:14px"></i>Cambiar jugador
+  </button>
 
-  <!-- Aviso de cierre -->
-  <div style="font-size:11px;color:var(--amber-text);margin-bottom:12px;padding:8px 12px;
-    background:var(--amber-bg);border:1px solid var(--amber-border);border-radius:var(--r-sm)">
-    ⏰ Los pronósticos se cierran <strong>1 hora antes</strong> de cada partido.
-    Una vez que inicia el partido ya no puedes cambiarlos.
+  <!-- Próximos partidos -->
+  <div class="sec-title" style="margin-bottom:10px">✏️ Ingresar mis pronósticos</div>
+  <div style="font-size:12px;color:var(--muted);margin-bottom:12px;padding:8px 12px;
+    background:var(--amber-bg);border:1px solid var(--amber-border);border-radius:var(--r-sm);color:var(--amber-text)">
+    ⏰ Los pronósticos se cierran <strong>10 minutos antes</strong> de cada partido.
+    Una vez que el admin ingresa el resultado, ya no puedes cambiarlos.
   </div>
-
-  <!-- Partidos actuales y futuros -->
-  <div class="sec-title" style="margin-bottom:10px">✏️ Partidos por pronosticar</div>
-  ${upcoming.length
+  ${upcoming.length > 0
     ? upcomingRows
-    : `<div style="background:var(--green-bg);border:1px solid var(--green-border);border-radius:var(--r);
-        padding:16px;text-align:center">
-        <div style="font-size:22px;margin-bottom:6px">✅</div>
-        <div style="font-size:13px;font-weight:700;color:var(--green-text)">¡Al día con tus pronósticos!</div>
-        <div style="font-size:11px;color:var(--green-text);margin-top:4px">Los próximos partidos aparecerán aquí.</div>
+    : `<div style="background:var(--green-bg);border:1px solid var(--green-border);border-radius:var(--r);padding:16px;text-align:center">
+        <div style="font-size:24px;margin-bottom:8px">✅</div>
+        <div style="font-size:14px;font-weight:700;color:var(--green-text)">¡Al día!</div>
+        <div style="font-size:12px;color:var(--green-text);margin-top:4px">Ya tienes pronósticos en todos los partidos disponibles.<br>Los nuevos partidos aparecerán aquí antes de jugarse.</div>
       </div>`
   }
 
-  <!-- Partidos pasados — colapsados -->
-  ${past.length?`
-  <div style="margin-top:20px">
-    <button onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none';
-      this.querySelector('.arch-arrow').textContent=this.nextElementSibling.style.display==='none'?'▶':'▼'"
-      style="display:flex;align-items:center;gap:8px;background:var(--off);border:1px solid var(--border);
-      border-radius:var(--r-sm);padding:10px 14px;cursor:pointer;width:100%;font-family:var(--fb);
-      font-size:12px;font-weight:700;color:var(--muted)">
-      <span class="arch-arrow">▶</span>
-      📁 Partidos anteriores (${past.length} partidos · ${T[pi]} pts acumulados)
-    </button>
-    <div style="display:none" class="card" style="margin-top:6px">
-      <div style="font-size:11px;color:var(--muted);margin-bottom:10px">
-        Solo lectura — pronóstico · resultado · puntos
-      </div>
-      ${pastRows}
+  <!-- Partidos jugados -->
+  ${played.length ? `
+  <div class="sec-title" style="margin-bottom:10px;margin-top:20px">📊 Mis resultados anteriores</div>
+  <div class="card">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:6px">
+      <span style="font-size:11px;color:var(--muted)">Pred. · Real · Pts</span>
     </div>
-  </div>`:''}`;
+    ${playedRows}
+  </div>` : ""}`;
 }
-
-function fmtTs(iso){
-  if(!iso) return '';
-  try{
-    const d=new Date(iso);
-    const days=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
-    const months=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
-    const day=days[d.getDay()], date=d.getDate(), mon=months[d.getMonth()];
-    const h=d.getHours().toString().padStart(2,'0'), m=d.getMinutes().toString().padStart(2,'0');
-    const tzShort=d.toLocaleTimeString([],{timeZoneName:'short'}).split(' ').pop();
-    return `${day} ${date} ${mon} · ${h}:${m} ${tzShort}`;
-  }catch(e){return iso;}
-}
-
 
 function saveMyPred(mi, pi){
-  // Auth check
+  // Auth: must be this player or admin
   if(!isAdmin && (!currentPlayer || currentPlayer.pi !== pi)){
-    toast("⛔ No puedes editar pronósticos de otro jugador","err"); return;
+    toast("⛔ Solo puedes editar tus propios pronósticos","err"); return;
   }
-  const hVal = document.getElementById(`mph-${mi}`)?.value;
-  const aVal = document.getElementById(`mpa-${mi}`)?.value;
+  const hVal=document.getElementById(`mph-${mi}`)?.value;
+  const aVal=document.getElementById(`mpa-${mi}`)?.value;
   if(hVal===''||hVal===undefined||aVal===''||aVal===undefined){
     toast("Ingresa los dos marcadores","err"); return;
   }
-  const r = S.real[String(mi)];
+  const r=S.real[String(mi)];
   if(!isAdmin && r && r.h!==undefined && r.a!==undefined){
     toast("⛔ Este partido ya se jugó","err"); return;
   }
-  const m = GM[mi];
+  const m=GM[mi];
   if(!isAdmin && isMatchLocked(m)){
     toast("⏰ Pronósticos cerrados — menos de 1 hora para el partido","err"); return;
   }
-  const key = `${mi}_${pi}`;
-  S.pred[key] = {h:+hVal, a:+aVal};
+  const key=`${mi}_${pi}`;
+  S.pred[key]={h:+hVal,a:+aVal};
+  // Timestamp — immutable on first save
   if(!S.predTs) S.predTs={};
-  // Timestamp: immutable on first save; admin edits flagged
-  if(!S.predTs[key]){
-    S.predTs[key] = new Date().toISOString();
-  } else if(isAdmin){
-    S.predTs[key+'_edited'] = true;
-  }
-  // Activity log
-  if(currentPlayer?.username && S.creds?.[currentPlayer.username]){
-    logPlayerAction(currentPlayer.username,
-      `${m.n} ${m.h} vs ${m.a}: ${+hVal}–${+aVal}`);
-  }
+  if(!S.predTs[key]) S.predTs[key]=new Date().toISOString();
+  else if(isAdmin) S.predTs[key+'_ed']=true;
+  // Log activity
+  if(currentPlayer?.username) logAction(currentPlayer.username,
+    `${m.n} ${m.h} vs ${m.a}: ${+hVal}–${+aVal}`);
   save();
-  toast(`✓ Pronóstico guardado: ${m.h} ${+hVal}–${+aVal} ${m.a}`);
+  toast(`✓ Pronóstico: ${m.h} ${+hVal}–${+aVal} ${m.a}`);
   rMiPredForm(document.getElementById("p-mipred"), pi);
 }
 
-// ── LOCAL CLOCK ──────────────────────────────────────────────
-function updateClock(){
-  const el = document.getElementById("local-clock");
-  if(!el) return;
-  const now = new Date();
-  const time = now.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"});
-  const tzShort = now.toLocaleTimeString([],{timeZoneName:"short"}).split(" ").pop();
-  el.textContent = time + " " + tzShort;
+// Returns true if match is locked (10 min before kickoff or already played)
+function isMatchLocked(m){
+  if(!m.d || !m.t) return false;
+  try{
+    // Parse match date/time — format: "Jun 11", "15:00" EST
+    const months = {Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
+    const [mon, day] = m.d.split(" ");
+    const [hh, mm] = m.t.split(":");
+    // EST = UTC-5, EDT = UTC-4 (summer, so UTC-4 during June-July)
+    const utcH = parseInt(hh) + 4; // EDT offset
+    const matchUTC = Date.UTC(2026, months[mon], parseInt(day), utcH, parseInt(mm), 0);
+    const nowUTC = Date.now();
+    const tenMin = 60 * 60 * 1000; // 1 hora antes
+    return nowUTC >= matchUTC - tenMin;
+  }catch(e){ return false; }
 }
-updateClock();
-setInterval(updateClock, 1000);
+
+
+
+
+
+// Helper: renders next N matches as opaque "locked" cards
+function buildUpcomingLocked(matches){
+  if(!matches.length) return '';
+  let h=`<div class="phase-sep" style="margin-top:16px">
+    <div class="phase-line"></div>
+    <div class="phase-badge" style="color:var(--faint);border-color:var(--border)">🔒 Próximos ${matches.length} partidos</div>
+    <div class="phase-line"></div>
+  </div>`;
+  matches.forEach(({m,mi})=>{
+    const pc=S.players.filter((_,pi)=>{const p=S.pred[`${mi}_${pi}`];return p&&p.h!==undefined;}).length;
+    h+=`<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r);margin-bottom:8px;overflow:hidden;opacity:0.42;filter:grayscale(30%);pointer-events:none">
+      <div style="display:flex;align-items:center;gap:7px;padding:7px 13px;border-bottom:1px solid var(--border);background:var(--card2)">
+        <span style="font-size:10px;font-weight:700;color:var(--faint);background:var(--off);border:1px solid var(--border);padding:2px 7px;border-radius:4px">${m.n}</span>
+        <span style="font-size:10px;color:var(--faint)">${m.d} · ${matchLocalTime(m.d,m.t)}</span>
+        <span style="font-size:9px;color:var(--faint);margin-left:auto">${pc}/${S.players.length} pred · Grupo ${m.g}</span>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;padding:12px 16px">
+        <div style="display:flex;flex-direction:column-reverse;align-items:center;gap:3px;text-align:center">
+          <div style="font-size:11px;font-weight:600;color:var(--faint);max-width:80px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m.h}</div>
+          <div style="font-size:22px;line-height:1">${fl(m.h)}</div>
+        </div>
+        <div style="text-align:center">
+          <div style="font-family:var(--fd);font-size:26px;color:var(--border);line-height:1">? – ?</div>
+          <div style="font-size:9px;color:var(--faint);margin-top:2px">POR JUGAR</div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:3px;text-align:center">
+          <div style="font-size:22px;line-height:1">${fl(m.a)}</div>
+          <div style="font-size:11px;font-weight:600;color:var(--faint);max-width:80px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m.a}</div>
+        </div>
+      </div>
+    </div>`;
+  });
+  return h;
+}
+
+
 
 // ════════════════════════════════════════════════════════════
-//  PLAYER LOGIN SYSTEM
+//  SISTEMA DE LOGIN POR JUGADOR
 // ════════════════════════════════════════════════════════════
-let currentPlayer = null;
+let currentPlayer = null; // {pi, username, name}
 
-function hashPass(s){ let h=0; for(let i=0;i<s.length;i++){h=((h<<5)-h)+s.charCodeAt(i);h|=0;} return String(h>>>0); }
+function hashPass(s){
+  let h=0; for(let i=0;i<s.length;i++){h=((h<<5)-h)+s.charCodeAt(i);h|=0;} return String(h>>>0);
+}
 
-function saveSession(username, pi){
-  try{ localStorage.setItem('pm26_session', JSON.stringify({
-    username, pi, token: hashPass(username+pi+'salt2026'), savedAt: Date.now()
-  })); }catch(e){}
+function makeUname(name){
+  const parts = name.normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .toLowerCase().replace(/[^a-z0-9 ]/g,'').trim().split(/\s+/);
+  return parts.length>=2 ? parts[0]+'.'+parts[parts.length-1] : parts[0];
+}
+
+function saveSession(username,pi){
+  try{ localStorage.setItem('pm26_sess',JSON.stringify({
+    username,pi,token:hashPass(username+pi+'s26'),savedAt:Date.now()
+  }));}catch(e){}
 }
 
 function loadSession(){
   try{
-    const raw = localStorage.getItem('pm26_session');
+    const raw=localStorage.getItem('pm26_sess');
     if(!raw) return null;
-    const sess = JSON.parse(raw);
-    if(sess.token !== hashPass(sess.username+sess.pi+'salt2026')){ localStorage.removeItem('pm26_session'); return null; }
-    if(Date.now()-sess.savedAt > 30*24*60*60*1000){ localStorage.removeItem('pm26_session'); return null; }
-    return sess;
-  }catch(e){ return null; }
+    const s=JSON.parse(raw);
+    if(s.token!==hashPass(s.username+s.pi+'s26')){localStorage.removeItem('pm26_sess');return null;}
+    if(Date.now()-s.savedAt>30*24*60*60*1000){localStorage.removeItem('pm26_sess');return null;}
+    return s;
+  }catch(e){return null;}
 }
 
-function clearSession(){ localStorage.removeItem('pm26_session'); currentPlayer=null; }
+function clearSession(){localStorage.removeItem('pm26_sess');currentPlayer=null;}
 
 function ensureCreds(){
   if(!S.creds) S.creds={};
   S.players.forEach((pl,pi)=>{
-    // Username = primer.apellido (ej: junior.hurtado)
-    const parts = pl.name.normalize('NFD').replace(/[\u0300-\u036f]/g,'')
-      .toLowerCase().replace(/[^a-z0-9 ]/g,'').trim().split(/\s+/);
-    const uname = parts.length >= 2
-      ? parts[0] + '.' + parts[parts.length-1]  // primer.apellido
-      : parts[0];
+    const uname=makeUname(pl.name);
     if(!S.creds[uname]){
-      S.creds[uname]={pi, passHash:hashPass('polla2026'), mustChange:true,
-        lastLogin:null, lastActivity:null, lastActions:[]};
+      S.creds[uname]={pi,passHash:hashPass('polla2026'),mustChange:true,
+        lastLogin:null,lastActions:[]};
     }
   });
 }
 
 function showLogin(onSuccess){
-  document.getElementById('login-overlay')?.remove();
+  document.getElementById('pm26-login')?.remove();
   const wrap=document.createElement('div');
-  wrap.id='login-overlay';
-  wrap.style.cssText='position:fixed;inset:0;z-index:700;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;background:linear-gradient(160deg,#0D1B2A 0%,#1a2d4a 100%)';
+  wrap.id='pm26-login'; wrap.className='login-wrap';
   wrap.innerHTML=`
   <div class="login-card">
     <div class="login-logo">
@@ -3143,127 +3183,144 @@ function showLogin(onSuccess){
       <div class="login-title">MUNDIAL 2026</div>
       <div class="login-sub">Ingresa tus pronósticos</div>
     </div>
-    <div class="login-err" id="login-err">Usuario o contraseña incorrectos</div>
+    <div class="login-err" id="lg-err">Usuario o contraseña incorrectos</div>
     <div class="login-field">
       <label class="login-label">Usuario</label>
-      <input class="login-inp" id="login-user" type="text" autocomplete="username"
-        placeholder="tu nombre" autocapitalize="none" spellcheck="false">
+      <input class="login-inp" id="lg-user" type="text" autocomplete="username"
+        placeholder="nombre.apellido" autocapitalize="none" spellcheck="false">
     </div>
     <div class="login-field">
       <label class="login-label">Contraseña</label>
-      <input class="login-inp" id="login-pass" type="password" autocomplete="current-password" placeholder="••••••••">
+      <input class="login-inp" id="lg-pass" type="password"
+        autocomplete="current-password" placeholder="••••••••">
     </div>
     <div class="login-remember">
-      <input type="checkbox" id="login-remember" checked style="width:16px;height:16px;accent-color:var(--gold)">
-      <label for="login-remember">Recordarme en este dispositivo</label>
+      <input type="checkbox" id="lg-rem" checked
+        style="width:16px;height:16px;accent-color:var(--gold)">
+      <label for="lg-rem">Recordarme en este dispositivo</label>
     </div>
     <button class="login-btn" onclick="doLogin()">Entrar →</button>
   </div>`;
   document.body.appendChild(wrap);
-  wrap.addEventListener('keydown',e=>{ if(e.key==='Enter') doLogin(); });
-  setTimeout(()=>document.getElementById('login-user')?.focus(),100);
-  window._loginSuccess=onSuccess||null;
+  wrap.addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
+  setTimeout(()=>document.getElementById('lg-user')?.focus(),100);
+  window._lgCb=onSuccess||null;
 }
 
 function doLogin(){
-  const user=(document.getElementById('login-user')?.value||'').trim().toLowerCase();
-  const pass=document.getElementById('login-pass')?.value||'';
-  const remember=document.getElementById('login-remember')?.checked;
-  const errEl=document.getElementById('login-err');
+  const user=(document.getElementById('lg-user')?.value||'').trim().toLowerCase();
+  const pass=document.getElementById('lg-pass')?.value||'';
+  const rem=document.getElementById('lg-rem')?.checked;
+  const errEl=document.getElementById('lg-err');
   ensureCreds();
   const cred=S.creds[user];
-  if(!cred||cred.passHash!==hashPass(pass)){ errEl.style.display='block'; return; }
+  if(!cred||cred.passHash!==hashPass(pass)){errEl.style.display='block';return;}
   errEl.style.display='none';
-  const pi=cred.pi;
-  currentPlayer={pi, username:user, name:S.players[pi]?.name||user};
+  currentPlayer={pi:cred.pi,username:user,name:S.players[cred.pi]?.name||user};
   S.creds[user].lastLogin=new Date().toISOString();
-  S.creds[user].lastActions=[];
   save();
-  if(remember) saveSession(user,pi);
-  document.getElementById('login-overlay')?.remove();
-  if(cred.mustChange){ showChangePw(user,()=>{ if(window._loginSuccess) window._loginSuccess(currentPlayer); else rMiPred(); }); return; }
-  if(window._loginSuccess) window._loginSuccess(currentPlayer);
-  else rMiPred();
+  if(rem) saveSession(user,cred.pi);
+  document.getElementById('pm26-login')?.remove();
+  if(cred.mustChange){showChangePw(user,()=>{if(window._lgCb)window._lgCb();else rMiPred();});return;}
+  if(window._lgCb) window._lgCb(); else rMiPred();
 }
 
-function showChangePw(username, onDone){
-  document.getElementById('changepw-overlay')?.remove();
-  const overlay=document.createElement('div');
-  overlay.id='changepw-overlay';
-  overlay.className='change-pw-overlay';
-  overlay.innerHTML=`
+function showChangePw(username,onDone){
+  document.getElementById('pm26-cpw')?.remove();
+  const ov=document.createElement('div');
+  ov.id='pm26-cpw'; ov.className='cpw-overlay';
+  ov.innerHTML=`
   <div class="login-card">
     <div class="login-logo">
       <div style="font-size:28px;margin-bottom:6px">🔑</div>
-      <div class="login-title" style="font-size:22px">Cambia tu contraseña</div>
-      <div class="login-sub" style="color:var(--amber-text)">Primera vez — crea tu contraseña personal</div>
+      <div class="login-title" style="font-size:22px">Nueva contraseña</div>
+      <div class="login-sub" style="color:var(--amber-text)">
+        Primera vez — crea tu contraseña personal antes de continuar
+      </div>
     </div>
     <div class="login-err" id="cpw-err">Las contraseñas no coinciden</div>
     <div class="login-field">
       <label class="login-label">Nueva contraseña</label>
-      <input class="login-inp" id="cpw-new" type="password" placeholder="mínimo 6 caracteres" autocomplete="new-password">
+      <input class="login-inp" id="cpw-new" type="password"
+        placeholder="mínimo 6 caracteres" autocomplete="new-password">
     </div>
     <div class="login-field">
       <label class="login-label">Confirmar contraseña</label>
-      <input class="login-inp" id="cpw-conf" type="password" placeholder="repite tu contraseña" autocomplete="new-password">
+      <input class="login-inp" id="cpw-conf" type="password"
+        placeholder="repite tu contraseña" autocomplete="new-password">
     </div>
-    <button class="login-btn" onclick="doChangePw('${username}')">Guardar contraseña →</button>
+    <button class="login-btn" onclick="doChangePw('${username}')">Guardar →</button>
   </div>`;
-  document.body.appendChild(overlay);
+  document.body.appendChild(ov);
   setTimeout(()=>document.getElementById('cpw-new')?.focus(),100);
-  window._changePwDone=onDone;
+  window._cpwCb=onDone;
 }
 
 function doChangePw(username){
   const nw=document.getElementById('cpw-new')?.value||'';
   const cf=document.getElementById('cpw-conf')?.value||'';
   const errEl=document.getElementById('cpw-err');
-  if(nw.length<6){ errEl.textContent='Mínimo 6 caracteres'; errEl.style.display='block'; return; }
-  if(nw!==cf){ errEl.textContent='Las contraseñas no coinciden'; errEl.style.display='block'; return; }
+  if(nw.length<6){errEl.textContent='Mínimo 6 caracteres';errEl.style.display='block';return;}
+  if(nw!==cf){errEl.textContent='Las contraseñas no coinciden';errEl.style.display='block';return;}
   S.creds[username].passHash=hashPass(nw);
   S.creds[username].mustChange=false;
   save();
-  document.getElementById('changepw-overlay')?.remove();
-  toast('✓ Contraseña guardada — bienvenido/a');
-  if(window._changePwDone) window._changePwDone();
+  document.getElementById('pm26-cpw')?.remove();
+  toast('✓ Contraseña guardada');
+  if(window._cpwCb) window._cpwCb();
 }
 
-function logPlayerAction(username,action){
+function logAction(username,action){
   if(!S.creds?.[username]) return;
-  const entry={action,at:new Date().toISOString()};
   if(!S.creds[username].lastActions) S.creds[username].lastActions=[];
-  S.creds[username].lastActions.unshift(entry);
+  S.creds[username].lastActions.unshift({action,at:new Date().toISOString()});
   S.creds[username].lastActions=S.creds[username].lastActions.slice(0,5);
-  S.creds[username].lastActivity=entry.at;
 }
 
-function playerLogout(){
-  clearSession(); currentPlayer=null; rMiPred(); toast('Sesión cerrada');
+function playerLogout(){clearSession();currentPlayer=null;rMiPred();toast('Sesión cerrada');}
+
+function fmtTs(iso){
+  if(!iso) return '—';
+  try{
+    const d=new Date(iso);
+    const wd=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'][d.getDay()];
+    const mo=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'][d.getMonth()];
+    const h=d.getHours().toString().padStart(2,'0');
+    const m=d.getMinutes().toString().padStart(2,'0');
+    const tz=d.toLocaleTimeString([],{timeZoneName:'short'}).split(' ').pop();
+    return `${wd} ${d.getDate()} ${mo} · ${h}:${m} ${tz}`;
+  }catch(e){return iso;}
 }
 
-// ════════════════════════════════════════════════════════════
-//  PANEL DE CONTROL DE USUARIOS (solo admin)
-// ════════════════════════════════════════════════════════════
 function buildUsersPanel(){
   ensureCreds();
   return S.players.map((pl,pi)=>{
-    const parts2=pl.name.normalize('NFD').replace(/[\u0300-\u036f]/g,'')
-      .toLowerCase().replace(/[^a-z0-9 ]/g,'').trim().split(/\s+/);
-    const uname=parts2.length>=2?parts2[0]+'.'+parts2[parts2.length-1]:parts2[0];
+    const uname=makeUname(pl.name);
     const cred=S.creds[uname]||{};
     const lastLogin=cred.lastLogin?fmtTs(cred.lastLogin):'Nunca';
-    const lastAct=cred.lastActions?.[0]?`${cred.lastActions[0].action} · ${fmtTs(cred.lastActions[0].at)}`:'Sin actividad';
-    return `<div style="background:var(--card2);border:1px solid var(--border);border-radius:var(--r-sm);padding:11px 13px;margin-bottom:8px">
+    const lastAct=cred.lastActions?.[0]
+      ?`${cred.lastActions[0].action} · ${fmtTs(cred.lastActions[0].at)}`
+      :'Sin actividad';
+    return `<div style="background:var(--card2);border:1px solid var(--border);
+      border-radius:var(--r-sm);padding:11px 13px;margin-bottom:8px">
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-        <div style="width:36px;height:36px;border-radius:50%;background:${AVC[pi%AVC.length]};display:flex;align-items:center;justify-content:center;font-family:var(--fd);font-size:14px;color:#fff;flex-shrink:0">${ini(pl.name)}</div>
+        <div style="width:36px;height:36px;border-radius:50%;background:${AVC[pi%AVC.length]};
+          display:flex;align-items:center;justify-content:center;font-family:var(--fd);
+          font-size:14px;color:#fff;flex-shrink:0">${ini(pl.name)}</div>
         <div style="flex:1;min-width:0">
-          <div style="font-size:13px;font-weight:700;color:var(--text)">${pl.name}</div>
-          <div style="font-size:10px;color:var(--muted);margin-top:1px">👤 <strong>${uname}</strong>${cred.mustChange?' <span style="color:var(--amber-text)">⚠ Clave no cambiada</span>':''}</div>
+          <div style="font-size:13px;font-weight:700">${pl.name}</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:1px">
+            👤 <strong>${uname}</strong>
+            ${cred.mustChange?'<span style="color:var(--amber-text);margin-left:6px">⚠ Clave no cambiada</span>':''}
+          </div>
           <div style="font-size:10px;color:var(--faint);margin-top:3px">🕐 Última conexión: ${lastLogin}</div>
-          <div style="font-size:10px;color:var(--faint);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:260px">📝 Última actividad: ${lastAct}</div>
+          <div style="font-size:10px;color:var(--faint);margin-top:1px;white-space:nowrap;
+            overflow:hidden;text-overflow:ellipsis;max-width:260px">📝 Última actividad: ${lastAct}</div>
         </div>
         <button onclick="adminResetPass('${uname}','${pl.name}')"
-          style="font-size:11px;font-weight:700;padding:6px 11px;border-radius:var(--r-sm);border:1.5px solid var(--amber-border);background:var(--amber-bg);color:var(--amber-text);cursor:pointer;flex-shrink:0;font-family:var(--fb)">
+          style="font-size:11px;font-weight:700;padding:6px 11px;border-radius:var(--r-sm);
+          border:1.5px solid var(--amber-border);background:var(--amber-bg);
+          color:var(--amber-text);cursor:pointer;font-family:var(--fb);flex-shrink:0">
           🔑 Resetear
         </button>
       </div>
@@ -3272,7 +3329,7 @@ function buildUsersPanel(){
 }
 
 function adminResetPass(username,playerName){
-  if(!isAdmin){ toast("Solo el admin puede hacer esto","err"); return; }
+  if(!isAdmin){toast('Solo el admin puede hacer esto','err');return;}
   if(!confirm(`¿Resetear contraseña de ${playerName}?\nVuelve a "polla2026" y deberán cambiarla al entrar.`)) return;
   if(!S.creds) S.creds={};
   if(!S.creds[username]) S.creds[username]={};
@@ -3281,33 +3338,26 @@ function adminResetPass(username,playerName){
   save();
   const up=document.getElementById('users-panel');
   if(up) up.innerHTML=buildUsersPanel();
-  toast(`✓ Contraseña de ${playerName} reseteada`);
+  toast(`✓ Contraseña de ${playerName} reseteada a "polla2026"`);
 }
 
-// ── INIT ─────────────────────────────────────────────────────
-// Firebase init
-if(typeof firebase !== 'undefined'){
-  fbInit();
-} else {
-  window.addEventListener('load',function(){
-    if(typeof firebase !== 'undefined') fbInit();
-    else updFbStatus(false);
-  });
-}
 
 // Auto-login from saved session
 try{
   ensureCreds();
-  const sess=loadSession();
-  if(sess){
-    const cred=S.creds[sess.username];
-    if(cred&&cred.pi===sess.pi){
-      currentPlayer={pi:sess.pi,username:sess.username,name:S.players[sess.pi]?.name||sess.username};
+  const _sess=loadSession();
+  if(_sess){
+    const _cr=S.creds[_sess.username];
+    if(_cr && _cr.pi===_sess.pi){
+      currentPlayer={pi:_sess.pi,username:_sess.username,
+        name:S.players[_sess.pi]?.name||_sess.username};
     }
   }
 }catch(e){}
 
+// INIT
 rInfo();
+
 </script>
 </body>
 </html>
