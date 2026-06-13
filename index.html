@@ -803,6 +803,8 @@ function fbInit(){
         S.real = Object.assign(officialReal, data.real||{});
         S.pred           = data.pred           || {};
         if(data.creds) S.creds = Object.assign(S.creds||{}, data.creds);
+        // Fix any missing .pw fields from old data format
+        if(typeof _ensureCreds === 'function') _ensureCreds();
         S.ko             = data.ko             || {};
         S.koPred         = data.koPred         || {};
         S.deadline       = data.deadline       || S.deadline;
@@ -889,6 +891,8 @@ function load(){
   S.real["0"] = {h:2, a:0}; // México 2-0 Sudáfrica (oficial)
 }
 load();
+// Repair any old creds format right after load
+if(typeof _ensureCreds==="function") _ensureCreds();
 // Firebase connects asynchronously — data syncs via listener above
 // Firebase init deferred until DOM + scripts fully loaded
 if(typeof firebase !== 'undefined'){
@@ -2794,18 +2798,21 @@ let myPlayerName  = null;
 function rMiPred(){
   const el = document.getElementById("p-mipred");
   if(!el) return;
-  // Login gate
-  if(!currentPlayer && !isAdmin){ showLogin(()=>go('mipred')); return; }
-  // Sync myPlayerIndex with currentPlayer for compat with rMiPredForm
-  if(currentPlayer && currentPlayer.pi !== undefined){
-    myPlayerIndex = currentPlayer.pi;
+  // Not logged in and not admin — show login
+  if(!currentPlayer && !isAdmin){
+    showLogin(()=>go('mipred'));
+    return;
   }
-  // Admin without player — show picker
-  if(isAdmin && myPlayerIndex === null){
+  // Get player index
+  const pi = currentPlayer ? currentPlayer.pi : myPlayerIndex;
+  if(pi === null || pi === undefined){
+    // Admin with no player selected — show picker
     rMiPredPicker(el);
-  } else {
-    rMiPredForm(el);
+    return;
   }
+  // Show this player's predictions
+  myPlayerIndex = pi; // keep compat
+  rMiPredForm(el);
 }
 
 function rMiPredPicker(el){
