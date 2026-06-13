@@ -3351,7 +3351,15 @@ function _ensureCreds(){
   if(!S.creds)S.creds={};
   S.players.forEach((pl,pi)=>{
     const u=_un(pl.name);
-    if(!S.creds[u])S.creds[u]={pi,pw:_h('polla2026'),chg:true,ll:null};
+    if(!S.creds[u]){
+      // New user — create with default password
+      S.creds[u]={pi,pw:_h('polla2026'),chg:true,ll:null};
+    } else {
+      // Existing user — fix missing fields (e.g. old Firebase data without pw)
+      if(!S.creds[u].pw) S.creds[u].pw=_h('polla2026');
+      if(S.creds[u].chg===undefined) S.creds[u].chg=true;
+      if(S.creds[u].pi===undefined) S.creds[u].pi=pi;
+    }
   });
 }
 
