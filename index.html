@@ -2795,7 +2795,7 @@ function rMiPred(){
   const el = document.getElementById("p-mipred");
   if(!el) return;
   // Login gate
-  if(!currentPlayer && !isAdmin){ showLogin(()=>rMiPred()); return; }
+  if(!currentPlayer && !isAdmin){ showLogin(()=>go('mipred')); return; }
   // Sync myPlayerIndex with currentPlayer for compat with rMiPredForm
   if(currentPlayer && currentPlayer.pi !== undefined){
     myPlayerIndex = currentPlayer.pi;
@@ -3415,7 +3415,8 @@ function _doLogin(){
   save();
   if(rem)_saveSess(u,cr.pi);
   closeModal();
-  if(window._lgcb)window._lgcb();else rMiPred();
+  if(window._lgcb) window._lgcb();
+  else go('mipred');
   // Non-blocking password change reminder
   if(cr.chg){
     setTimeout(()=>{
