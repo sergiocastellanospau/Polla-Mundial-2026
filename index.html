@@ -762,7 +762,7 @@ const KO_LBL={R32:"Ronda de 32",R16:"Octavos de final",QF:"Cuartos de final",SF:
 
 const DEFAULT_PLAYERS=[{"name": "Alvaro Arias", "paid": true}, {"name": "Andres Perilla", "paid": true}, {"name": "Cesar Andres Tara", "paid": false}, {"name": "Daniel Trejo", "paid": false}, {"name": "Eduardo Peñuela", "paid": false}, {"name": "Edwin Rodríguez", "paid": false}, {"name": "Javier Rodriguez", "paid": false}, {"name": "Jhonatan Agudelo", "paid": true}, {"name": "Jhony Moreno", "paid": false}, {"name": "Junior Hurtado", "paid": true}, {"name": "Nacho Carrera", "paid": true}, {"name": "Samuel Peñuela", "paid": true}, {"name": "Samuel Rodriguez", "paid": false}, {"name": "Sergio Castellanos", "paid": true}];
 
-let S={players:[...DEFAULT_PLAYERS.map(p=>({...p}))],real:{"0":{h:2,a:0}},pred:{},creds:{},ko:{},koPred:{},deadline:"2026-06-10",cuota:100,adminPin:"2026",adminName:"Sergio Castellanos",currency:{code:"USD",symbol:"$",locale:"en-US"},pendingRequests:[]};
+let S={players:[...DEFAULT_PLAYERS.map(p=>({...p}))],real:{"0":{h:2,a:0}},pred:{},predTs:{},creds:{},ko:{},koPred:{},deadline:"2026-06-10",cuota:100,adminPin:"2026",adminName:"Sergio Castellanos",currency:{code:"USD",symbol:"$",locale:"en-US"},pendingRequests:[]};
 let isAdmin=false;
 
 // ════════════════════════════════════════════════════════════
@@ -2994,25 +2994,36 @@ function rMiPredForm(el){
 }
 
 function saveMyPred(mi, pi){
-  if(!isAdmin){ toast("⛔ Solo el administrador puede ingresar pronósticos","err"); return; }
-  const h = document.getElementById(`mph-${mi}`)?.value;
-  const a = document.getElementById(`mpa-${mi}`)?.value;
-  if(h===""||h===undefined||a===""||a===undefined){
+  // Admin puede todo; jugador solo sus propios y dentro del plazo
+  if(!isAdmin){
+    if(!currentPlayer || currentPlayer.pi!==pi) return; // silencioso
+    const _r=S.real[String(mi)];
+    if(_r&&_r.h!==undefined&&_r.a!==undefined){
+      toast("⛔ Este partido ya se jugó","err"); return;
+    }
+    if(isMatchLocked(GM[mi])){
+      toast("⏰ Cerrado — menos de 1 hora para el partido","err"); return;
+    }
+  }
+  const h=document.getElementById(`mph-${mi}`)?.value;
+  const a=document.getElementById(`mpa-${mi}`)?.value;
+  if(h===''||h===undefined||a===''||a===undefined){
     toast("Ingresa los dos marcadores","err"); return;
   }
-  // BLOCK if match already has a real result
-  const r = S.real[String(mi)];
-  if(r && r.h!==undefined && r.a!==undefined){
-    toast("⛔ Este partido ya se jugó — no puedes cambiar el pronóstico","err"); return;
+  const key=`${mi}_${pi}`;
+  S.pred[key]={h:+h,a:+a};
+  if(!S.predTs) S.predTs={};
+  if(!S.predTs[key]) S.predTs[key]=new Date().toISOString();
+  else if(isAdmin) S.predTs[key+'_ed']=true;
+  if(currentPlayer&&currentPlayer.u&&S.creds&&S.creds[currentPlayer.u]){
+    const _cr=S.creds[currentPlayer.u];
+    if(!_cr.la)_cr.la=[];
+    _cr.la.unshift({a:GM[mi].n+' '+GM[mi].h+' vs '+GM[mi].a+': '+h+'–'+a,t:new Date().toISOString()});
+    _cr.la=_cr.la.slice(0,5);
+    _cr.ll=new Date().toISOString();
   }
-  // BLOCK if match starts in less than 10 minutes (local time)
-  const m = GM[mi];
-  if(isMatchLocked(m)){
-    toast("⏰ Pronósticos cerrados — faltan menos de 10 min para el partido","err"); return;
-  }
-  S.pred[`${mi}_${pi}`] = {h:+h, a:+a};
   save();
-  toast(`✓ Pronóstico guardado: ${m.h} ${+h} – ${+a} ${m.a}`);
+  toast(`✓ Pronóstico: ${GM[mi].h} ${+h}–${+a} ${GM[mi].a}`);
   rMiPredForm(document.getElementById("p-mipred"));
 }
 
@@ -3028,7 +3039,7 @@ function isMatchLocked(m){
     const utcH = parseInt(hh) + 4; // EDT offset
     const matchUTC = Date.UTC(2026, months[mon], parseInt(day), utcH, parseInt(mm), 0);
     const nowUTC = Date.now();
-    const tenMin = 10 * 60 * 1000;
+    const tenMin = 60 * 60 * 1000; // 1 hora antes del partido
     return nowUTC >= matchUTC - tenMin;
   }catch(e){ return false; }
 }
@@ -3444,7 +3455,8 @@ function _uPanel(){
         +'<div style="font-size:13px;font-weight:700">'+pl.name+'</div>'
         +'<div style="font-size:10px;color:var(--muted)">👤 '+u
           +(cr.chg?' <span style="color:var(--amber-text)">⚠ Clave no cambiada</span>':'')+'</div>'
-        +'<div style="font-size:10px;color:var(--faint)">🕐 '+ll+'</div>'
+        +'<div style="font-size:10px;color:var(--faint)">🕐 Última conexión: '+ll+'</div>'
+        +(cr.la&&cr.la[0]?'<div style="font-size:10px;color:var(--faint);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:240px">📝 '+cr.la[0].a+'</div>':'')
       +'</div>'
       +'<button onclick="_resetPw(\''+u+'\',\''+pl.name+'\')" '
         +'style="font-size:11px;font-weight:700;padding:5px 10px;border-radius:var(--r-sm);'
@@ -3467,6 +3479,19 @@ function _resetPw(u,name){
   toast('✓ '+name+' → clave reseteada a "polla2026"');
 }
 
+
+function fmtTs(iso){
+  if(!iso) return '';
+  try{
+    const d=new Date(iso);
+    const wd=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'][d.getDay()];
+    const mo=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'][d.getMonth()];
+    const hh=d.getHours().toString().padStart(2,'0');
+    const mm2=d.getMinutes().toString().padStart(2,'0');
+    const tz=d.toLocaleTimeString([],{timeZoneName:'short'}).split(' ').pop();
+    return wd+' '+d.getDate()+' '+mo+' '+hh+':'+mm2+' '+tz;
+  }catch(e){return '';}
+}
 // INIT
 rInfo();
 // Auto-login
