@@ -2871,7 +2871,11 @@ function tryPlayerPin(){
   currentPlayer = {pi, name: S.players[pi].name};
   myPlayerIndex = pi;
   closeModal();
-  go('mipred');
+  // Activate panel directly without calling rMiPred (avoid loop)
+  document.querySelectorAll('.nb,.bn-btn').forEach(b=>b.classList.toggle('on',(b.getAttribute('onclick')||'').includes("'mipred'")));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('on'));
+  const _el=document.getElementById('p-mipred');
+  if(_el){ _el.classList.add('on'); rMiPredForm(_el); }
 }
 
 function rMiPredPicker(el){
