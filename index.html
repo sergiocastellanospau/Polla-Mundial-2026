@@ -546,33 +546,30 @@ body{padding-bottom:calc(72px + var(--safe-bot))}
 .ev-minute{font-size:12px;font-weight:700;color:var(--red);letter-spacing:.03em}
 
 
-/* ── LOGIN ──────────────────────────────────────────────── */
-.login-wrap{position:fixed;inset:0;z-index:700;display:flex;flex-direction:column;
-  align-items:center;justify-content:center;padding:24px;
-  background:linear-gradient(160deg,#0D1B2A 0%,#1a2d4a 100%)}
-.login-card{background:var(--card);border-radius:var(--r-lg);
-  padding:32px 28px;width:100%;max-width:360px;box-shadow:0 8px 40px rgba(0,0,0,.35)}
-.login-logo{text-align:center;margin-bottom:24px}
-.login-title{font-family:var(--fd);font-size:28px;color:var(--gold);letter-spacing:.04em}
-.login-sub{font-size:11px;color:var(--muted);margin-top:4px}
-.login-field{margin-bottom:16px}
-.login-label{font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.06em;
-  text-transform:uppercase;display:block;margin-bottom:6px}
-.login-inp{width:100%;padding:12px 14px;border-radius:var(--r-sm);border:1.5px solid var(--border);
-  background:var(--off);color:var(--text);font-size:15px;font-family:var(--fb);
-  box-sizing:border-box;outline:none;transition:border-color .2s}
-.login-inp:focus{border-color:var(--gold)}
-.login-btn{width:100%;padding:14px;border-radius:var(--r-sm);border:none;background:var(--gold);
-  color:var(--navy);font-size:15px;font-weight:700;font-family:var(--fb);cursor:pointer;
-  margin-top:8px;letter-spacing:.02em;transition:opacity .15s}
-.login-btn:active{opacity:.8}
-.login-err{background:var(--red-bg);border:1px solid var(--red-border);border-radius:var(--r-sm);
-  padding:10px 14px;font-size:12px;color:var(--red-text);margin-bottom:14px;display:none}
-.login-remember{display:flex;align-items:center;gap:8px;margin-top:14px;
-  font-size:12px;color:var(--muted)}
-.cpw-overlay{position:fixed;inset:0;z-index:800;display:flex;align-items:center;
-  justify-content:center;padding:24px;background:rgba(13,27,42,.92)}
-
+/* LOGIN */
+.pm-login{position:fixed;inset:0;z-index:700;background:linear-gradient(160deg,#0D1B2A,#1a2d4a);
+  display:flex;align-items:center;justify-content:center;padding:20px}
+.pm-lcard{background:var(--card);border-radius:var(--r-lg);padding:28px 24px;
+  width:100%;max-width:340px;box-shadow:0 8px 40px rgba(0,0,0,.4)}
+.pm-ltitle{font-family:var(--fd);font-size:26px;color:var(--gold);text-align:center;
+  letter-spacing:.04em;margin-bottom:4px}
+.pm-lsub{font-size:11px;color:var(--muted);text-align:center;margin-bottom:20px}
+.pm-lfield{margin-bottom:14px}
+.pm-llbl{font-size:10px;font-weight:700;color:var(--muted);letter-spacing:.07em;
+  text-transform:uppercase;display:block;margin-bottom:5px}
+.pm-linp{width:100%;padding:11px 13px;border-radius:var(--r-sm);border:1.5px solid var(--border);
+  background:var(--off);color:var(--text);font-size:14px;font-family:var(--fb);
+  box-sizing:border-box;outline:none}
+.pm-linp:focus{border-color:var(--gold)}
+.pm-lbtn{width:100%;padding:13px;border-radius:var(--r-sm);border:none;
+  background:var(--gold);color:var(--navy);font-size:14px;font-weight:700;
+  font-family:var(--fb);cursor:pointer;margin-top:6px}
+.pm-lerr{background:var(--red-bg);border:1px solid var(--red-border);
+  border-radius:var(--r-sm);padding:9px 13px;font-size:12px;color:var(--red-text);
+  margin-bottom:12px;display:none}
+.pm-lrem{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);margin-top:12px}
+.pm-cpw{position:fixed;inset:0;z-index:800;background:rgba(13,27,42,.93);
+  display:flex;align-items:center;justify-content:center;padding:20px}
 </style>
 
 <!-- Firebase SDK (compat = global firebase variable) -->
@@ -774,7 +771,7 @@ const KO_LBL={R32:"Ronda de 32",R16:"Octavos de final",QF:"Cuartos de final",SF:
 
 const DEFAULT_PLAYERS=[{"name": "Alvaro Arias", "paid": true}, {"name": "Andres Perilla", "paid": true}, {"name": "Cesar Andres Tara", "paid": false}, {"name": "Daniel Trejo", "paid": false}, {"name": "Eduardo Peñuela", "paid": false}, {"name": "Edwin Rodríguez", "paid": false}, {"name": "Javier Rodriguez", "paid": false}, {"name": "Jhonatan Agudelo", "paid": true}, {"name": "Jhony Moreno", "paid": false}, {"name": "Junior Hurtado", "paid": true}, {"name": "Nacho Carrera", "paid": true}, {"name": "Samuel Peñuela", "paid": true}, {"name": "Samuel Rodriguez", "paid": false}, {"name": "Sergio Castellanos", "paid": true}];
 
-let S={players:[...DEFAULT_PLAYERS.map(p=>({...p}))],real:{"0":{h:2,a:0}},pred:{},predTs:{},creds:{},ko:{},koPred:{},deadline:"2026-06-10",cuota:100,adminPin:"2026",adminName:"Sergio Castellanos",currency:{code:"USD",symbol:"$",locale:"en-US"},pendingRequests:[]};
+let S={players:[...DEFAULT_PLAYERS.map(p=>({...p}))],real:{"0":{h:2,a:0}},pred:{},creds:{},ko:{},koPred:{},deadline:"2026-06-10",cuota:100,adminPin:"2026",adminName:"Sergio Castellanos",currency:{code:"USD",symbol:"$",locale:"en-US"},pendingRequests:[]};
 let isAdmin=false;
 
 // ════════════════════════════════════════════════════════════
@@ -815,6 +812,7 @@ function fbInit(){
         const officialReal = {"0":{h:2,a:0}}; // México 2-0 Sudáfrica (oficial)
         S.real = Object.assign(officialReal, data.real||{});
         S.pred           = data.pred           || {};
+        S.creds          = data.creds          || S.creds || {};
         S.ko             = data.ko             || {};
         S.koPred         = data.koPred         || {};
         S.deadline       = data.deadline       || S.deadline;
@@ -862,7 +860,6 @@ function save(){
       players:         S.players,
       real:            S.real,
       pred:            S.pred,
-      predTs:          S.predTs||{},
       creds:           S.creds||{},
       ko:              S.ko,
       koPred:          S.koPred,
@@ -885,7 +882,6 @@ function load(){
       // Merge carefully — don't let cached empty values overwrite official data
       if(saved.players && saved.players.length) S.players = saved.players;
       if(saved.pred) S.pred = saved.pred;
-      if(saved.predTs) S.predTs = saved.predTs;
       if(saved.creds) S.creds = saved.creds;
       if(saved.ko) S.ko = saved.ko;
       if(saved.koPred) S.koPred = saved.koPred;
@@ -2104,13 +2100,6 @@ function rInfo(){
 function rAdmin(){
   document.getElementById("p-admin").innerHTML=`
   <div class="adm-section">
-    <div class="adm-sec-title"><i class="ti ti-shield-lock"></i>Control de usuarios</div>
-    <div style="font-size:12px;color:var(--muted);margin-bottom:12px">
-      Contraseñas, última conexión y actividad de cada jugador.
-    </div>
-    <div id="users-panel"></div>
-  </div>
-  <div class="adm-section">
     <div class="adm-title"><i class="ti ti-settings" style="font-size:18px"></i>Configuración general</div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px">
       <div><span class="adm-lbl">Fecha límite inscripción</span>
@@ -2150,9 +2139,13 @@ function rAdmin(){
       <button class="btn btn-red btn-sm" onclick="clearResults()">Borrar todos los resultados</button>
       <button class="btn btn-red btn-sm" onclick="clearAll()">Resetear todo</button>
     </div>
+  </div>
+  <div class="adm-section">
+    <div class="adm-sec-title"><i class="ti ti-shield-lock"></i>Control de usuarios</div>
+    <div id="_upanel"></div>
   </div>`;
-  const _up=document.getElementById('users-panel');
-  if(_up) _up.innerHTML=buildUsersPanel();
+  // Fill users panel after render (avoids nested template literal issues)
+  setTimeout(()=>{const el=document.getElementById('_upanel');if(el)el.innerHTML=_uPanel();},0);
 }
 function saveDl(){S.deadline=document.getElementById("adm-dl")?.value;save();toast("Fecha guardada ✓");}
 function saveCuota(){S.cuota=+document.getElementById("adm-cuota")?.value||100;save();toast("Cuota guardada ✓");}
@@ -2812,44 +2805,23 @@ let myPlayerName  = null;
 function rMiPred(){
   const el = document.getElementById("p-mipred");
   if(!el) return;
-  // Login gate — only for Mi Pronóstico tab
   if(!currentPlayer && !isAdmin){
     showLogin(()=>rMiPred());
     return;
   }
-  // Admin without player selected — show picker
-  if(isAdmin && !currentPlayer){
-    rMiPredAdminPicker(el);
+  const pi = isAdmin && !currentPlayer
+    ? null : currentPlayer.pi;
+  if(pi===null){
+    // Admin picker
+    el.innerHTML='<div class="card"><div class="card-title">Selecciona jugador</div>'
+      +S.players.map((p,i)=>'<button onclick="currentPlayer={pi:'+i+',u:'admin',name:''+p.name+''};rMiPred()" '
+        +'style="display:block;width:100%;text-align:left;padding:10px 14px;margin-bottom:6px;'
+        +'border-radius:var(--r-sm);border:1px solid var(--border);background:var(--card2);'
+        +'cursor:pointer;font-size:13px;font-family:var(--fb)">'+p.name+'</button>').join('')
+      +'</div>';
     return;
   }
-  const pi = currentPlayer.pi;
   rMiPredForm(el, pi);
-}
-
-function rMiPredAdminPicker(el){
-  el.innerHTML=`
-  <div class="hero" style="margin-bottom:16px">
-    <div class="hero-ey">Admin · Ver/editar pronósticos</div>
-    <div class="hero-t">SELECCIONA JUGADOR</div>
-  </div>
-  <div class="card">
-    <div class="card-title"><i class="ti ti-users"></i>¿De qué jugador?</div>
-    <div style="display:flex;flex-direction:column;gap:7px;margin-top:12px">
-      ${S.players.map((p,i)=>`
-        <button onclick="currentPlayer={pi:${i},username:'admin',name:'${p.name}'};rMiPred()"
-          style="display:flex;align-items:center;gap:12px;padding:11px 14px;border-radius:var(--r);
-          border:1.5px solid var(--border);background:var(--card);cursor:pointer;
-          text-align:left;font-family:var(--fb)">
-          <div style="width:36px;height:36px;border-radius:50%;background:${AVC[i%AVC.length]};
-            display:flex;align-items:center;justify-content:center;font-family:var(--fd);
-            font-size:14px;color:#fff;flex-shrink:0">${ini(p.name)}</div>
-          <div style="flex:1">
-            <div style="font-size:13px;font-weight:700">${p.name}</div>
-          </div>
-          <i class="ti ti-chevron-right" style="color:var(--faint)"></i>
-        </button>`).join('')}
-    </div>
-  </div>`;
 }
 
 function rMiPredPicker(el){
@@ -3040,35 +3012,29 @@ function rMiPredForm(el){
 }
 
 function saveMyPred(mi, pi){
-  // Auth: must be this player or admin
+  // Admin puede todo. Jugador solo sus propios y antes de 1 hora
   if(!isAdmin && (!currentPlayer || currentPlayer.pi !== pi)){
-    toast("⛔ Solo puedes editar tus propios pronósticos","err"); return;
+    return; // silently blocked
   }
-  const hVal=document.getElementById(`mph-${mi}`)?.value;
-  const aVal=document.getElementById(`mpa-${mi}`)?.value;
-  if(hVal===''||hVal===undefined||aVal===''||aVal===undefined){
+  const h = document.getElementById(`mph-${mi}`)?.value;
+  const a = document.getElementById(`mpa-${mi}`)?.value;
+  if(h===""||h===undefined||a===""||a===undefined){
     toast("Ingresa los dos marcadores","err"); return;
   }
-  const r=S.real[String(mi)];
-  if(!isAdmin && r && r.h!==undefined && r.a!==undefined){
-    toast("⛔ Este partido ya se jugó","err"); return;
+  // BLOCK if match already has a real result
+  const r = S.real[String(mi)];
+  if(r && r.h!==undefined && r.a!==undefined){
+    toast("⛔ Este partido ya se jugó — no puedes cambiar el pronóstico","err"); return;
   }
-  const m=GM[mi];
-  if(!isAdmin && isMatchLocked(m)){
-    toast("⏰ Pronósticos cerrados — menos de 1 hora para el partido","err"); return;
+  // BLOCK if match starts in less than 10 minutes (local time)
+  const m = GM[mi];
+  if(isMatchLocked(m)){
+    toast("⏰ Pronósticos cerrados — faltan menos de 10 min para el partido","err"); return;
   }
-  const key=`${mi}_${pi}`;
-  S.pred[key]={h:+hVal,a:+aVal};
-  // Timestamp — immutable on first save
-  if(!S.predTs) S.predTs={};
-  if(!S.predTs[key]) S.predTs[key]=new Date().toISOString();
-  else if(isAdmin) S.predTs[key+'_ed']=true;
-  // Log activity
-  if(currentPlayer?.username) logAction(currentPlayer.username,
-    `${m.n} ${m.h} vs ${m.a}: ${+hVal}–${+aVal}`);
+  S.pred[`${mi}_${pi}`] = {h:+h, a:+a};
   save();
-  toast(`✓ Pronóstico: ${m.h} ${+hVal}–${+aVal} ${m.a}`);
-  rMiPredForm(document.getElementById("p-mipred"), pi);
+  toast(`✓ Pronóstico guardado: ${m.h} ${+h} – ${+a} ${m.a}`);
+  rMiPredForm(document.getElementById("p-mipred"));
 }
 
 // Returns true if match is locked (10 min before kickoff or already played)
@@ -3083,7 +3049,7 @@ function isMatchLocked(m){
     const utcH = parseInt(hh) + 4; // EDT offset
     const matchUTC = Date.UTC(2026, months[mon], parseInt(day), utcH, parseInt(mm), 0);
     const nowUTC = Date.now();
-    const tenMin = 60 * 60 * 1000; // 1 hora antes
+    const tenMin = 60 * 60 * 1000; // 1 hora antes del partido
     return nowUTC >= matchUTC - tenMin;
   }catch(e){ return false; }
 }
@@ -3129,234 +3095,173 @@ function buildUpcomingLocked(matches){
 
 
 
-// ════════════════════════════════════════════════════════════
-//  SISTEMA DE LOGIN POR JUGADOR
-// ════════════════════════════════════════════════════════════
-let currentPlayer = null; // {pi, username, name}
+// ── PLAYER LOGIN SYSTEM ──────────────────────────────────────
+let currentPlayer = null;
 
-function hashPass(s){
-  let h=0; for(let i=0;i<s.length;i++){h=((h<<5)-h)+s.charCodeAt(i);h|=0;} return String(h>>>0);
-}
+function _h(s){let h=0;for(let i=0;i<s.length;i++){h=((h<<5)-h)+s.charCodeAt(i);h|=0;}return String(h>>>0);}
 
-function makeUname(name){
-  const parts = name.normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+function _uname(name){
+  const p=name.normalize('NFD').replace(/[\u0300-\u036f]/g,'')
     .toLowerCase().replace(/[^a-z0-9 ]/g,'').trim().split(/\s+/);
-  return parts.length>=2 ? parts[0]+'.'+parts[parts.length-1] : parts[0];
+  return p.length>=2?p[0]+'.'+p[p.length-1]:p[0];
 }
 
-function saveSession(username,pi){
-  try{ localStorage.setItem('pm26_sess',JSON.stringify({
-    username,pi,token:hashPass(username+pi+'s26'),savedAt:Date.now()
-  }));}catch(e){}
+function _saveSession(u,pi){
+  try{localStorage.setItem('pm26s',JSON.stringify(
+    {u,pi,t:_h(u+pi+'26'),at:Date.now()}));}catch(e){}
 }
-
-function loadSession(){
+function _loadSession(){
   try{
-    const raw=localStorage.getItem('pm26_sess');
-    if(!raw) return null;
-    const s=JSON.parse(raw);
-    if(s.token!==hashPass(s.username+s.pi+'s26')){localStorage.removeItem('pm26_sess');return null;}
-    if(Date.now()-s.savedAt>30*24*60*60*1000){localStorage.removeItem('pm26_sess');return null;}
+    const r=localStorage.getItem('pm26s');
+    if(!r)return null;
+    const s=JSON.parse(r);
+    if(s.t!==_h(s.u+s.pi+'26'))return null;
+    if(Date.now()-s.at>30*24*60*60*1000)return null;
     return s;
   }catch(e){return null;}
 }
+function _clearSession(){localStorage.removeItem('pm26s');currentPlayer=null;}
 
-function clearSession(){localStorage.removeItem('pm26_sess');currentPlayer=null;}
-
-function ensureCreds(){
-  if(!S.creds) S.creds={};
+function _ensureCreds(){
+  if(!S.creds)S.creds={};
   S.players.forEach((pl,pi)=>{
-    const uname=makeUname(pl.name);
-    if(!S.creds[uname]){
-      S.creds[uname]={pi,passHash:hashPass('polla2026'),mustChange:true,
-        lastLogin:null,lastActions:[]};
-    }
+    const u=_uname(pl.name);
+    if(!S.creds[u])S.creds[u]={pi,pw:_h('polla2026'),chg:true,ll:null,la:[]};
   });
 }
 
-function showLogin(onSuccess){
-  document.getElementById('pm26-login')?.remove();
-  const wrap=document.createElement('div');
-  wrap.id='pm26-login'; wrap.className='login-wrap';
-  wrap.innerHTML=`
-  <div class="login-card">
-    <div class="login-logo">
-      <div style="font-size:36px;margin-bottom:6px">⚽</div>
-      <div class="login-title">MUNDIAL 2026</div>
-      <div class="login-sub">Ingresa tus pronósticos</div>
-    </div>
-    <div class="login-err" id="lg-err">Usuario o contraseña incorrectos</div>
-    <div class="login-field">
-      <label class="login-label">Usuario</label>
-      <input class="login-inp" id="lg-user" type="text" autocomplete="username"
+function showLogin(cb){
+  document.getElementById('pm-login')?.remove();
+  const d=document.createElement('div');
+  d.id='pm-login';d.className='pm-login';
+  d.innerHTML=`<div class="pm-lcard">
+    <div style="text-align:center;font-size:32px;margin-bottom:8px">⚽</div>
+    <div class="pm-ltitle">MUNDIAL 2026</div>
+    <div class="pm-lsub">Ingresa tus pronósticos</div>
+    <div class="pm-lerr" id="pm-lerr">Usuario o contraseña incorrectos</div>
+    <div class="pm-lfield">
+      <label class="pm-llbl">Usuario</label>
+      <input class="pm-linp" id="pm-lu" type="text" autocomplete="username"
         placeholder="nombre.apellido" autocapitalize="none" spellcheck="false">
     </div>
-    <div class="login-field">
-      <label class="login-label">Contraseña</label>
-      <input class="login-inp" id="lg-pass" type="password"
+    <div class="pm-lfield">
+      <label class="pm-llbl">Contraseña</label>
+      <input class="pm-linp" id="pm-lp" type="password"
         autocomplete="current-password" placeholder="••••••••">
     </div>
-    <div class="login-remember">
-      <input type="checkbox" id="lg-rem" checked
-        style="width:16px;height:16px;accent-color:var(--gold)">
-      <label for="lg-rem">Recordarme en este dispositivo</label>
+    <div class="pm-lrem">
+      <input type="checkbox" id="pm-lrem" checked
+        style="width:15px;height:15px;accent-color:var(--gold)">
+      <label for="pm-lrem">Recordarme en este dispositivo</label>
     </div>
-    <button class="login-btn" onclick="doLogin()">Entrar →</button>
+    <button class="pm-lbtn" onclick="_doLogin()">Entrar →</button>
   </div>`;
-  document.body.appendChild(wrap);
-  wrap.addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
-  setTimeout(()=>document.getElementById('lg-user')?.focus(),100);
-  window._lgCb=onSuccess||null;
+  document.body.appendChild(d);
+  d.addEventListener('keydown',e=>{if(e.key==='Enter')_doLogin();});
+  setTimeout(()=>document.getElementById('pm-lu')?.focus(),80);
+  window._lgcb=cb||null;
 }
 
-function doLogin(){
-  const user=(document.getElementById('lg-user')?.value||'').trim().toLowerCase();
-  const pass=document.getElementById('lg-pass')?.value||'';
-  const rem=document.getElementById('lg-rem')?.checked;
-  const errEl=document.getElementById('lg-err');
-  ensureCreds();
-  const cred=S.creds[user];
-  if(!cred||cred.passHash!==hashPass(pass)){errEl.style.display='block';return;}
-  errEl.style.display='none';
-  currentPlayer={pi:cred.pi,username:user,name:S.players[cred.pi]?.name||user};
-  S.creds[user].lastLogin=new Date().toISOString();
+function _doLogin(){
+  _ensureCreds();
+  const u=(document.getElementById('pm-lu')?.value||'').trim().toLowerCase();
+  const p=document.getElementById('pm-lp')?.value||'';
+  const rem=document.getElementById('pm-lrem')?.checked;
+  const err=document.getElementById('pm-lerr');
+  const cr=S.creds[u];
+  if(!cr||cr.pw!==_h(p)){err.style.display='block';return;}
+  err.style.display='none';
+  currentPlayer={pi:cr.pi,u,name:S.players[cr.pi]?.name||u};
+  cr.ll=new Date().toISOString();
   save();
-  if(rem) saveSession(user,cred.pi);
-  document.getElementById('pm26-login')?.remove();
-  if(cred.mustChange){showChangePw(user,()=>{if(window._lgCb)window._lgCb();else rMiPred();});return;}
-  if(window._lgCb) window._lgCb(); else rMiPred();
+  if(rem)_saveSession(u,cr.pi);
+  document.getElementById('pm-login')?.remove();
+  if(cr.chg){_showChgPw(u,()=>{if(window._lgcb)window._lgcb();else rMiPred();});return;}
+  if(window._lgcb)window._lgcb();else rMiPred();
 }
 
-function showChangePw(username,onDone){
-  document.getElementById('pm26-cpw')?.remove();
-  const ov=document.createElement('div');
-  ov.id='pm26-cpw'; ov.className='cpw-overlay';
-  ov.innerHTML=`
-  <div class="login-card">
-    <div class="login-logo">
-      <div style="font-size:28px;margin-bottom:6px">🔑</div>
-      <div class="login-title" style="font-size:22px">Nueva contraseña</div>
-      <div class="login-sub" style="color:var(--amber-text)">
-        Primera vez — crea tu contraseña personal antes de continuar
-      </div>
+function _showChgPw(u,cb){
+  document.getElementById('pm-cpw')?.remove();
+  const d=document.createElement('div');
+  d.id='pm-cpw';d.className='pm-cpw';
+  d.innerHTML=`<div class="pm-lcard">
+    <div style="text-align:center;font-size:26px;margin-bottom:8px">🔑</div>
+    <div class="pm-ltitle" style="font-size:20px">Nueva contraseña</div>
+    <div class="pm-lsub" style="color:var(--amber-text)">
+      Primera vez — crea tu contraseña personal
     </div>
-    <div class="login-err" id="cpw-err">Las contraseñas no coinciden</div>
-    <div class="login-field">
-      <label class="login-label">Nueva contraseña</label>
-      <input class="login-inp" id="cpw-new" type="password"
+    <div class="pm-lerr" id="cpw-err">Las contraseñas no coinciden</div>
+    <div class="pm-lfield">
+      <label class="pm-llbl">Nueva contraseña</label>
+      <input class="pm-linp" id="cpw-n" type="password"
         placeholder="mínimo 6 caracteres" autocomplete="new-password">
     </div>
-    <div class="login-field">
-      <label class="login-label">Confirmar contraseña</label>
-      <input class="login-inp" id="cpw-conf" type="password"
+    <div class="pm-lfield">
+      <label class="pm-llbl">Confirmar</label>
+      <input class="pm-linp" id="cpw-c" type="password"
         placeholder="repite tu contraseña" autocomplete="new-password">
     </div>
-    <button class="login-btn" onclick="doChangePw('${username}')">Guardar →</button>
+    <button class="pm-lbtn" onclick="_doChgPw('${u}')">Guardar →</button>
   </div>`;
-  document.body.appendChild(ov);
-  setTimeout(()=>document.getElementById('cpw-new')?.focus(),100);
-  window._cpwCb=onDone;
+  document.body.appendChild(d);
+  setTimeout(()=>document.getElementById('cpw-n')?.focus(),80);
+  window._cpwcb=cb;
 }
 
-function doChangePw(username){
-  const nw=document.getElementById('cpw-new')?.value||'';
-  const cf=document.getElementById('cpw-conf')?.value||'';
-  const errEl=document.getElementById('cpw-err');
-  if(nw.length<6){errEl.textContent='Mínimo 6 caracteres';errEl.style.display='block';return;}
-  if(nw!==cf){errEl.textContent='Las contraseñas no coinciden';errEl.style.display='block';return;}
-  S.creds[username].passHash=hashPass(nw);
-  S.creds[username].mustChange=false;
-  save();
-  document.getElementById('pm26-cpw')?.remove();
+function _doChgPw(u){
+  const n=document.getElementById('cpw-n')?.value||'';
+  const conf=document.getElementById('cpw-c')?.value||'';
+  const err=document.getElementById('cpw-err');
+  if(n.length<6){err.textContent='Mínimo 6 caracteres';err.style.display='block';return;}
+  if(n!==conf){err.textContent='No coinciden';err.style.display='block';return;}
+  S.creds[u].pw=_h(n);S.creds[u].chg=false;save();
+  document.getElementById('pm-cpw')?.remove();
   toast('✓ Contraseña guardada');
-  if(window._cpwCb) window._cpwCb();
+  if(window._cpwcb)window._cpwcb();
 }
 
-function logAction(username,action){
-  if(!S.creds?.[username]) return;
-  if(!S.creds[username].lastActions) S.creds[username].lastActions=[];
-  S.creds[username].lastActions.unshift({action,at:new Date().toISOString()});
-  S.creds[username].lastActions=S.creds[username].lastActions.slice(0,5);
-}
+function _playerLogout(){_clearSession();currentPlayer=null;rMiPred();toast('Sesión cerrada');}
 
-function playerLogout(){clearSession();currentPlayer=null;rMiPred();toast('Sesión cerrada');}
-
-function fmtTs(iso){
-  if(!iso) return '—';
-  try{
-    const d=new Date(iso);
-    const wd=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'][d.getDay()];
-    const mo=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'][d.getMonth()];
-    const h=d.getHours().toString().padStart(2,'0');
-    const m=d.getMinutes().toString().padStart(2,'0');
-    const tz=d.toLocaleTimeString([],{timeZoneName:'short'}).split(' ').pop();
-    return `${wd} ${d.getDate()} ${mo} · ${h}:${m} ${tz}`;
-  }catch(e){return iso;}
-}
-
-function buildUsersPanel(){
-  ensureCreds();
+function _uPanel(){
+  _ensureCreds();
   return S.players.map((pl,pi)=>{
-    const uname=makeUname(pl.name);
-    const cred=S.creds[uname]||{};
-    const lastLogin=cred.lastLogin?fmtTs(cred.lastLogin):'Nunca';
-    const lastAct=cred.lastActions?.[0]
-      ?`${cred.lastActions[0].action} · ${fmtTs(cred.lastActions[0].at)}`
-      :'Sin actividad';
-    return `<div style="background:var(--card2);border:1px solid var(--border);
-      border-radius:var(--r-sm);padding:11px 13px;margin-bottom:8px">
-      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-        <div style="width:36px;height:36px;border-radius:50%;background:${AVC[pi%AVC.length]};
-          display:flex;align-items:center;justify-content:center;font-family:var(--fd);
-          font-size:14px;color:#fff;flex-shrink:0">${ini(pl.name)}</div>
-        <div style="flex:1;min-width:0">
-          <div style="font-size:13px;font-weight:700">${pl.name}</div>
-          <div style="font-size:10px;color:var(--muted);margin-top:1px">
-            👤 <strong>${uname}</strong>
-            ${cred.mustChange?'<span style="color:var(--amber-text);margin-left:6px">⚠ Clave no cambiada</span>':''}
-          </div>
-          <div style="font-size:10px;color:var(--faint);margin-top:3px">🕐 Última conexión: ${lastLogin}</div>
-          <div style="font-size:10px;color:var(--faint);margin-top:1px;white-space:nowrap;
-            overflow:hidden;text-overflow:ellipsis;max-width:260px">📝 Última actividad: ${lastAct}</div>
-        </div>
-        <button onclick="adminResetPass('${uname}','${pl.name}')"
-          style="font-size:11px;font-weight:700;padding:6px 11px;border-radius:var(--r-sm);
-          border:1.5px solid var(--amber-border);background:var(--amber-bg);
-          color:var(--amber-text);cursor:pointer;font-family:var(--fb);flex-shrink:0">
-          🔑 Resetear
-        </button>
-      </div>
-    </div>`;
+    const u=_uname(pl.name);
+    const cr=S.creds[u]||{};
+    const ll=cr.ll?new Date(cr.ll).toLocaleString():'Nunca';
+    return '<div style="padding:10px 0;border-bottom:1px solid var(--border)">'
+      +'<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
+      +'<div style="flex:1;min-width:0">'
+      +'<div style="font-size:13px;font-weight:700">'+pl.name+'</div>'
+      +'<div style="font-size:10px;color:var(--muted)">👤 '+u
+        +(cr.chg?' <span style="color:var(--amber-text)">⚠ Clave no cambiada</span>':'')+'</div>'
+      +'<div style="font-size:10px;color:var(--faint)">🕐 '+ll+'</div>'
+      +'</div>'
+      +'<button onclick="_resetPw(\''+u+'\',\''+pl.name+'\')" '
+        +'style="font-size:11px;font-weight:700;padding:5px 10px;border-radius:var(--r-sm);'
+        +'border:1.5px solid var(--amber-border);background:var(--amber-bg);'
+        +'color:var(--amber-text);cursor:pointer;font-family:var(--fb);flex-shrink:0">'
+        +'🔑 Resetear</button>'
+      +'</div></div>';
   }).join('');
 }
 
-function adminResetPass(username,playerName){
-  if(!isAdmin){toast('Solo el admin puede hacer esto','err');return;}
-  if(!confirm(`¿Resetear contraseña de ${playerName}?\nVuelve a "polla2026" y deberán cambiarla al entrar.`)) return;
-  if(!S.creds) S.creds={};
-  if(!S.creds[username]) S.creds[username]={};
-  S.creds[username].passHash=hashPass('polla2026');
-  S.creds[username].mustChange=true;
+function _resetPw(u,name){
+  if(!isAdmin){toast('Solo admin','err');return;}
+  if(!confirm('¿Resetear contraseña de '+name+'?\nVuelve a "polla2026"'))return;
+  _ensureCreds();
+  if(!S.creds[u])S.creds[u]={};
+  S.creds[u].pw=_h('polla2026');S.creds[u].chg=true;
   save();
-  const up=document.getElementById('users-panel');
-  if(up) up.innerHTML=buildUsersPanel();
-  toast(`✓ Contraseña de ${playerName} reseteada a "polla2026"`);
+  const el=document.getElementById('_upanel');
+  if(el)el.innerHTML=_uPanel();
+  toast('✓ Contraseña de '+name+' reseteada a "polla2026"');
 }
 
-
-// Auto-login from saved session
-try{
-  ensureCreds();
-  const _sess=loadSession();
-  if(_sess){
-    const _cr=S.creds[_sess.username];
-    if(_cr && _cr.pi===_sess.pi){
-      currentPlayer={pi:_sess.pi,username:_sess.username,
-        name:S.players[_sess.pi]?.name||_sess.username};
-    }
-  }
+// Auto-login
+try{_ensureCreds();const _s=_loadSession();
+if(_s){const _cr=S.creds[_s.u];
+if(_cr&&_cr.pi===_s.pi)currentPlayer={pi:_s.pi,u:_s.u,name:S.players[_s.pi]?.name||_s.u};}
 }catch(e){}
-
 // INIT
 rInfo();
 
