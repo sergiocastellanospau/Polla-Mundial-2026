@@ -2108,7 +2108,7 @@ function rAdmin(){
     <div style="font-size:12px;color:var(--muted);margin-bottom:12px">
       Contraseñas, última conexión y actividad de cada jugador.
     </div>
-    <div id="users-panel">${buildUsersPanel()}</div>
+    <div id="users-panel"></div>
   </div>
   <div class="adm-section">
     <div class="adm-title"><i class="ti ti-settings" style="font-size:18px"></i>Configuración general</div>
@@ -2151,6 +2151,8 @@ function rAdmin(){
       <button class="btn btn-red btn-sm" onclick="clearAll()">Resetear todo</button>
     </div>
   </div>`;
+  const _up=document.getElementById('users-panel');
+  if(_up) _up.innerHTML=buildUsersPanel();
 }
 function saveDl(){S.deadline=document.getElementById("adm-dl")?.value;save();toast("Fecha guardada ✓");}
 function saveCuota(){S.cuota=+document.getElementById("adm-cuota")?.value||100;save();toast("Cuota guardada ✓");}
