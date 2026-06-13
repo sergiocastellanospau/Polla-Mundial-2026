@@ -2812,7 +2812,12 @@ function rMiPred(){
     rMiPredForm(el);
     return;
   }
-  // Non-admin: show player PIN modal
+  // Non-admin: if already logged in show their form, else show PIN modal
+  if(currentPlayer !== null){
+    myPlayerIndex = currentPlayer.pi;
+    rMiPredForm(document.getElementById('p-mipred'));
+    return;
+  }
   showPlayerPinModal();
 }
 
