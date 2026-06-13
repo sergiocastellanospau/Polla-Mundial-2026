@@ -925,32 +925,6 @@ if(typeof firebase !== 'undefined'){
 }
 
 // ── LOCAL CLOCK ──────────────────────────────────────────────
-function updateClock(){
-  const el = document.getElementById("local-clock");
-  if(!el) return;
-  const now = new Date();
-  const time = now.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"});
-  const tzShort = now.toLocaleTimeString([],{timeZoneName:"short"}).split(" ").pop();
-  el.textContent = time + " " + tzShort;
-}
-updateClock();
-setInterval(updateClock, 1000);
-
-
-
-// Auto-login from saved session
-try{
-  ensureCreds();
-  const sess = loadSession();
-  if(sess){
-    const cred = S.creds[sess.username];
-    if(cred && cred.pi === sess.pi){
-      currentPlayer = { pi: sess.pi, username: sess.username, name: S.players[sess.pi]?.name||sess.username };
-    }
-  }
-}catch(e){}
-
-// SCORING — Grupos: 3=resultado,5=exacto | KO: 3/5 normal + 7=empate+ganadorPen / 10=exacto+ganadorPen
 function calcPts(rh,ra,ph,pa,isKO,rPenW,pPenW){
   if([rh,ra,ph,pa].some(x=>x===undefined||x===null||x===""))return null;
   rh=+rh;ra=+ra;ph=+ph;pa=+pa;
@@ -2109,64 +2083,6 @@ function rInfo(){
 // ════════════════════════════════════════════════════════════
 //  PANEL DE CONTROL DE USUARIOS (solo admin)
 // ════════════════════════════════════════════════════════════
-function buildUsersPanel(){
-  ensureCreds();
-  const rows = S.players.map((pl,pi)=>{
-    const uname = pl.name.split(' ')[0].toLowerCase().normalize('NFD')
-      .replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,'');
-    const cred = S.creds[uname]||{};
-    const lastLogin = cred.lastLogin
-      ? fmtTs(cred.lastLogin)
-      : 'Nunca';
-    const lastAct = cred.lastActions?.[0]
-      ? `${cred.lastActions[0].action} · ${fmtTs(cred.lastActions[0].at)}`
-      : 'Sin actividad';
-    const mustChange = cred.mustChange;
-
-    return `<div style="background:var(--card2);border:1px solid var(--border);
-      border-radius:var(--r-sm);padding:11px 13px;margin-bottom:8px">
-      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-        <div style="width:36px;height:36px;border-radius:50%;background:${AVC[pi%AVC.length]};
-          display:flex;align-items:center;justify-content:center;font-family:var(--fd);
-          font-size:14px;color:#fff;flex-shrink:0">${ini(pl.name)}</div>
-        <div style="flex:1;min-width:0">
-          <div style="font-size:13px;font-weight:700;color:var(--text)">${pl.name}</div>
-          <div style="font-size:10px;color:var(--muted);margin-top:1px">
-            👤 <strong>${uname}</strong>
-            ${mustChange?'<span style="color:var(--amber-text);margin-left:6px">⚠ Clave no cambiada</span>':''}
-          </div>
-          <div style="font-size:10px;color:var(--faint);margin-top:3px">
-            🕐 Última conexión: ${lastLogin}
-          </div>
-          <div style="font-size:10px;color:var(--faint);margin-top:1px;
-            white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:260px">
-            📝 Última actividad: ${lastAct}
-          </div>
-        </div>
-        <button onclick="adminResetPass('${uname}','${pl.name}')"
-          style="font-size:11px;font-weight:700;padding:6px 11px;border-radius:var(--r-sm);
-          border:1.5px solid var(--amber-border);background:var(--amber-bg);
-          color:var(--amber-text);cursor:pointer;flex-shrink:0;font-family:var(--fb)">
-          🔑 Resetear clave
-        </button>
-      </div>
-    </div>`;
-  }).join('');
-  return rows || '<div class="empty">Sin jugadores</div>';
-}
-
-function adminResetPass(username, playerName){
-  if(!isAdmin){ toast("Solo el admin puede hacer esto","err"); return; }
-  if(!confirm(`¿Resetear la contraseña de ${playerName}?\n\nSe volverá a "polla2026" y deberán cambiarla al entrar.`)) return;
-  if(!S.creds) S.creds={};
-  if(!S.creds[username]) S.creds[username]={};
-  S.creds[username].passHash = hashPass('polla2026');
-  S.creds[username].mustChange = true;
-  save();
-  document.getElementById('users-panel').innerHTML = buildUsersPanel();
-  toast(`✓ Contraseña de ${playerName} reseteada a "polla2026"`);
-}
-
 function rAdmin(){
   document.getElementById("p-admin").innerHTML=`
   <div class="adm-section">
@@ -2875,26 +2791,9 @@ function rMiPred(){
   const el = document.getElementById("p-mipred");
   if(!el) return;
 
-  // Not logged in → show login screen
+  // Not logged in → show login immediately
   if(!currentPlayer && !isAdmin){
-    el.innerHTML = `
-    <div class="hero" style="margin-bottom:16px">
-      <div class="hero-ey">FIFA World Cup 2026</div>
-      <div class="hero-t">MIS PRONÓSTICOS</div>
-      <div class="hero-s">Inicia sesión para ingresar tus predicciones</div>
-    </div>
-    <div class="card" style="text-align:center;padding:32px 20px">
-      <div style="font-size:40px;margin-bottom:12px">🔐</div>
-      <div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:6px">Acceso con contraseña</div>
-      <div style="font-size:12px;color:var(--muted);margin-bottom:20px;line-height:1.6">
-        Cada jugador tiene su propio usuario y contraseña.<br>
-        Solo tú puedes editar tus pronósticos.
-      </div>
-      <button class="btn btn-gold" style="width:100%;justify-content:center;font-size:15px;padding:14px"
-        onclick="showLogin(()=>{rMiPred();})">
-        <i class="ti ti-login"></i>Iniciar sesión
-      </button>
-    </div>`;
+    showLogin(()=>{ rMiPred(); });
     return;
   }
 
@@ -3219,8 +3118,12 @@ function clearSession(){ localStorage.removeItem('pm26_session'); currentPlayer=
 function ensureCreds(){
   if(!S.creds) S.creds={};
   S.players.forEach((pl,pi)=>{
-    const uname = pl.name.split(' ')[0].toLowerCase().normalize('NFD')
-      .replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,'');
+    // Username = primer.apellido (ej: junior.hurtado)
+    const parts = pl.name.normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+      .toLowerCase().replace(/[^a-z0-9 ]/g,'').trim().split(/\s+/);
+    const uname = parts.length >= 2
+      ? parts[0] + '.' + parts[parts.length-1]  // primer.apellido
+      : parts[0];
     if(!S.creds[uname]){
       S.creds[uname]={pi, passHash:hashPass('polla2026'), mustChange:true,
         lastLogin:null, lastActivity:null, lastActions:[]};
@@ -3344,8 +3247,9 @@ function playerLogout(){
 function buildUsersPanel(){
   ensureCreds();
   return S.players.map((pl,pi)=>{
-    const uname=pl.name.split(' ')[0].toLowerCase().normalize('NFD')
-      .replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,'');
+    const parts2=pl.name.normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+      .toLowerCase().replace(/[^a-z0-9 ]/g,'').trim().split(/\s+/);
+    const uname=parts2.length>=2?parts2[0]+'.'+parts2[parts2.length-1]:parts2[0];
     const cred=S.creds[uname]||{};
     const lastLogin=cred.lastLogin?fmtTs(cred.lastLogin):'Nunca';
     const lastAct=cred.lastActions?.[0]?`${cred.lastActions[0].action} · ${fmtTs(cred.lastActions[0].at)}`:'Sin actividad';
@@ -3356,7 +3260,7 @@ function buildUsersPanel(){
           <div style="font-size:13px;font-weight:700;color:var(--text)">${pl.name}</div>
           <div style="font-size:10px;color:var(--muted);margin-top:1px">👤 <strong>${uname}</strong>${cred.mustChange?' <span style="color:var(--amber-text)">⚠ Clave no cambiada</span>':''}</div>
           <div style="font-size:10px;color:var(--faint);margin-top:3px">🕐 Última conexión: ${lastLogin}</div>
-          <div style="font-size:10px;color:var(--faint);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:260px">📝 ${lastAct}</div>
+          <div style="font-size:10px;color:var(--faint);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:260px">📝 Última actividad: ${lastAct}</div>
         </div>
         <button onclick="adminResetPass('${uname}','${pl.name}')"
           style="font-size:11px;font-weight:700;padding:6px 11px;border-radius:var(--r-sm);border:1.5px solid var(--amber-border);background:var(--amber-bg);color:var(--amber-text);cursor:pointer;flex-shrink:0;font-family:var(--fb)">
