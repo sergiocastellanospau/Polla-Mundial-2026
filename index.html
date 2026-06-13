@@ -3406,22 +3406,29 @@ function _showChgPw(u,cb){
   document.getElementById('_pmcpw')?.remove();
   const d=document.createElement('div');
   d.id='_pmcpw';d.className='pm-ov';d.style.zIndex='800';
-  d.innerHTML='<div class="pm-card">'
-    +'<div style="text-align:center;font-size:26px;margin-bottom:6px">🔑</div>'
-    +'<div style="font-family:var(--fd);font-size:20px;color:var(--gold);text-align:center;margin-bottom:4px">Nueva contraseña</div>'
-    +'<div style="font-size:11px;color:var(--amber-text);text-align:center;margin-bottom:18px">Primera vez — crea tu contraseña personal</div>'
-    +'<div class="pm-err" id="_cpwerr">Las contraseñas no coinciden</div>'
-    +'<div style="margin-bottom:12px">'
-      +'<div style="font-size:10px;font-weight:700;color:var(--muted);letter-spacing:.07em;text-transform:uppercase;margin-bottom:5px">Nueva contraseña</div>'
-      +'<input class="pm-inp" id="_cpwn" type="password" placeholder="mínimo 6 caracteres" autocomplete="new-password">'
-    +'</div>'
-    +'<div style="margin-bottom:12px">'
-      +'<div style="font-size:10px;font-weight:700;color:var(--muted);letter-spacing:.07em;text-transform:uppercase;margin-bottom:5px">Confirmar</div>'
-      +'<input class="pm-inp" id="_cpwc" type="password" placeholder="repite tu contraseña" autocomplete="new-password">'
-    +'</div>'
-    +'<button class="pm-btn" onclick="_doChgPw(\''+u+'\')">Guardar →</button>'
-    +'</div>';
+  // Build innerHTML safely without nested quote issues
+  const card=document.createElement('div');
+  card.className='pm-card';
+  card.innerHTML=[
+    '<div style="text-align:center;font-size:26px;margin-bottom:6px">🔑</div>',
+    '<div style="font-family:var(--fd);font-size:20px;color:var(--gold);text-align:center;margin-bottom:4px">Nueva contraseña</div>',
+    '<div style="font-size:11px;color:var(--amber-text);text-align:center;margin-bottom:18px">Primera vez — crea tu contraseña personal</div>',
+    '<div class="pm-err" id="_cpwerr">Las contraseñas no coinciden</div>',
+    '<div style="margin-bottom:12px">',
+      '<div style="font-size:10px;font-weight:700;color:var(--muted);letter-spacing:.07em;text-transform:uppercase;margin-bottom:5px">Nueva contraseña</div>',
+      '<input class="pm-inp" id="_cpwn" type="password" placeholder="mínimo 6 caracteres" autocomplete="new-password">',
+    '</div>',
+    '<div style="margin-bottom:12px">',
+      '<div style="font-size:10px;font-weight:700;color:var(--muted);letter-spacing:.07em;text-transform:uppercase;margin-bottom:5px">Confirmar</div>',
+      '<input class="pm-inp" id="_cpwc" type="password" placeholder="repite tu contraseña" autocomplete="new-password">',
+    '</div>',
+    '<button class="pm-btn" id="_cpwbtn">Guardar →</button>',
+  ].join('');
+  d.appendChild(card);
   document.body.appendChild(d);
+  // Attach click handler safely (no inline onclick needed)
+  document.getElementById('_cpwbtn').addEventListener('click',()=>_doChgPw(u));
+  d.addEventListener('keydown',e=>{if(e.key==='Enter')_doChgPw(u);});
   setTimeout(()=>document.getElementById('_cpwn')?.focus(),80);
   window._cpwcb=cb;
 }
