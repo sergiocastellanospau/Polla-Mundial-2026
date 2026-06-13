@@ -2797,9 +2797,12 @@ function rMiPred(){
   if(!el) return;
   // Login gate
   if(!currentPlayer && !isAdmin){ showLogin(()=>rMiPred()); return; }
-  // If player not selected yet, show picker
-  if(!currentPlayer && isAdmin){ myPlayerIndex=null; }
-  if(myPlayerIndex === null){
+  // Sync myPlayerIndex with currentPlayer for compat with rMiPredForm
+  if(currentPlayer && currentPlayer.pi !== undefined){
+    myPlayerIndex = currentPlayer.pi;
+  }
+  // Admin without player — show picker
+  if(isAdmin && myPlayerIndex === null){
     rMiPredPicker(el);
   } else {
     rMiPredForm(el);
@@ -2854,7 +2857,8 @@ function selectMyPlayer(pi){
 }
 
 function rMiPredForm(el){
-  const pi = myPlayerIndex;
+  const pi = (currentPlayer && currentPlayer.pi !== undefined)
+    ? currentPlayer.pi : myPlayerIndex;
   const p  = S.players[pi];
   const T  = totals();
   const ranked = [...T].sort((a,b)=>b-a);
@@ -3406,8 +3410,13 @@ function _doLogin(){
   save();
   if(rem)_saveSess(u,cr.pi);
   document.getElementById('_pmlogin')?.remove();
-  if(cr.chg){_showChgPw(u,()=>{if(window._lgcb)window._lgcb();else rMiPred();});return;}
   if(window._lgcb)window._lgcb();else rMiPred();
+  // Non-blocking password change reminder
+  if(cr.chg){
+    setTimeout(()=>{
+      toast('🔑 Por favor cambia tu contraseña — ve a Mi pronóstico → Cambiar clave');
+    },800);
+  }
 }
 
 function _showChgPw(u,cb){
@@ -3434,8 +3443,11 @@ function _showChgPw(u,cb){
   ].join('');
   d.appendChild(card);
   document.body.appendChild(d);
-  // Attach click handler safely (no inline onclick needed)
-  document.getElementById('_cpwbtn').addEventListener('click',()=>_doChgPw(u));
+  // Attach click handler after DOM is ready
+  setTimeout(()=>{
+    const btn=document.getElementById('_cpwbtn');
+    if(btn) btn.onclick=()=>_doChgPw(u);
+  },10);
   d.addEventListener('keydown',e=>{if(e.key==='Enter')_doChgPw(u);});
   setTimeout(()=>document.getElementById('_cpwn')?.focus(),80);
   window._cpwcb=cb;
