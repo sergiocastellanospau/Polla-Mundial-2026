@@ -545,6 +545,22 @@ body{padding-bottom:calc(72px + var(--safe-bot))}
 .ev-score-sep{font-size:24px;font-weight:700;color:var(--border)}
 .ev-minute{font-size:12px;font-weight:700;color:var(--red);letter-spacing:.03em}
 
+
+/* ── PLAYER LOGIN ─────────────────── */
+.pm-ov{position:fixed;inset:0;z-index:700;background:linear-gradient(160deg,#0D1B2A,#1a2d4a);
+  display:flex;align-items:center;justify-content:center;padding:20px}
+.pm-card{background:var(--card);border-radius:var(--r-lg);padding:28px 24px;
+  width:100%;max-width:340px;box-shadow:0 8px 40px rgba(0,0,0,.4)}
+.pm-inp{width:100%;padding:11px 13px;border-radius:var(--r-sm);
+  border:1.5px solid var(--border);background:var(--off);color:var(--text);
+  font-size:14px;font-family:var(--fb);box-sizing:border-box;outline:none}
+.pm-inp:focus{border-color:var(--gold)}
+.pm-btn{width:100%;padding:13px;border-radius:var(--r-sm);border:none;
+  background:var(--gold);color:var(--navy);font-size:14px;font-weight:700;
+  font-family:var(--fb);cursor:pointer;margin-top:6px}
+.pm-err{background:var(--red-bg);border:1px solid var(--red-border);
+  border-radius:var(--r-sm);padding:9px 13px;font-size:12px;
+  color:var(--red-text);margin-bottom:12px;display:none}
 </style>
 
 <!-- Firebase SDK (compat = global firebase variable) -->
@@ -746,7 +762,7 @@ const KO_LBL={R32:"Ronda de 32",R16:"Octavos de final",QF:"Cuartos de final",SF:
 
 const DEFAULT_PLAYERS=[{"name": "Alvaro Arias", "paid": true}, {"name": "Andres Perilla", "paid": true}, {"name": "Cesar Andres Tara", "paid": false}, {"name": "Daniel Trejo", "paid": false}, {"name": "Eduardo Peñuela", "paid": false}, {"name": "Edwin Rodríguez", "paid": false}, {"name": "Javier Rodriguez", "paid": false}, {"name": "Jhonatan Agudelo", "paid": true}, {"name": "Jhony Moreno", "paid": false}, {"name": "Junior Hurtado", "paid": true}, {"name": "Nacho Carrera", "paid": true}, {"name": "Samuel Peñuela", "paid": true}, {"name": "Samuel Rodriguez", "paid": false}, {"name": "Sergio Castellanos", "paid": true}];
 
-let S={players:[...DEFAULT_PLAYERS.map(p=>({...p}))],real:{"0":{h:2,a:0}},pred:{},ko:{},koPred:{},deadline:"2026-06-10",cuota:100,adminPin:"2026",adminName:"Sergio Castellanos",currency:{code:"USD",symbol:"$",locale:"en-US"},pendingRequests:[]};
+let S={players:[...DEFAULT_PLAYERS.map(p=>({...p}))],real:{"0":{h:2,a:0}},pred:{},creds:{},ko:{},koPred:{},deadline:"2026-06-10",cuota:100,adminPin:"2026",adminName:"Sergio Castellanos",currency:{code:"USD",symbol:"$",locale:"en-US"},pendingRequests:[]};
 let isAdmin=false;
 
 // ════════════════════════════════════════════════════════════
@@ -787,6 +803,7 @@ function fbInit(){
         const officialReal = {"0":{h:2,a:0}}; // México 2-0 Sudáfrica (oficial)
         S.real = Object.assign(officialReal, data.real||{});
         S.pred           = data.pred           || {};
+        if(data.creds) S.creds = Object.assign(S.creds||{}, data.creds);
         S.ko             = data.ko             || {};
         S.koPred         = data.koPred         || {};
         S.deadline       = data.deadline       || S.deadline;
@@ -834,6 +851,7 @@ function save(){
       players:         S.players,
       real:            S.real,
       pred:            S.pred,
+      creds:           S.creds||{},
       ko:              S.ko,
       koPred:          S.koPred,
       deadline:        S.deadline,
@@ -855,6 +873,7 @@ function load(){
       // Merge carefully — don't let cached empty values overwrite official data
       if(saved.players && saved.players.length) S.players = saved.players;
       if(saved.pred) S.pred = saved.pred;
+      if(saved.creds) S.creds = saved.creds;
       if(saved.ko) S.ko = saved.ko;
       if(saved.koPred) S.koPred = saved.koPred;
       if(saved.cuota) S.cuota = saved.cuota;
@@ -2111,7 +2130,12 @@ function rAdmin(){
       <button class="btn btn-red btn-sm" onclick="clearResults()">Borrar todos los resultados</button>
       <button class="btn btn-red btn-sm" onclick="clearAll()">Resetear todo</button>
     </div>
+  </div>
+  <div class="adm-section">
+    <div class="adm-sec-title"><i class="ti ti-shield-lock"></i>Control de usuarios</div>
+    <div id="_upanel" style="margin-top:10px"></div>
   </div>`;
+  setTimeout(()=>{const e=document.getElementById('_upanel');if(e)e.innerHTML=_uPanel();},0);
 }
 function saveDl(){S.deadline=document.getElementById("adm-dl")?.value;save();toast("Fecha guardada ✓");}
 function saveCuota(){S.cuota=+document.getElementById("adm-cuota")?.value||100;save();toast("Cuota guardada ✓");}
@@ -2771,7 +2795,10 @@ let myPlayerName  = null;
 function rMiPred(){
   const el = document.getElementById("p-mipred");
   if(!el) return;
+  // Login gate
+  if(!currentPlayer && !isAdmin){ showLogin(()=>rMiPred()); return; }
   // If player not selected yet, show picker
+  if(!currentPlayer && isAdmin){ myPlayerIndex=null; }
   if(myPlayerIndex === null){
     rMiPredPicker(el);
   } else {
@@ -3013,6 +3040,239 @@ function isMatchLocked(m){
 // Helper: renders next N matches as opaque "locked" cards
 function buildUpcomingLocked(matches){
   if(!matches.length) return '';
+  let h = `
+  <div class="phase-sep" style="margin-top:20px">
+    <div class="phase-line"></div>
+    <div class="phase-badge" style="color:var(--faint);border-color:var(--border)">
+      🔒 Próximos ${matches.length} partidos
+    </div>
+    <div class="phase-line"></div>
+  </div>`;
+
+  matches.forEach(({m,mi})=>{
+    const predsCount = S.players.filter((_,pi)=>{
+      const pr=S.pred[`${mi}_${pi}`];
+      return pr && pr.h!==undefined;
+    }).length;
+
+    h += `<div style="background:var(--card);border:1px solid var(--border);
+      border-radius:var(--r);margin-bottom:8px;overflow:hidden;
+      opacity:0.42;filter:grayscale(30%);pointer-events:none">
+
+      <!-- Header -->
+      <div style="display:flex;align-items:center;gap:7px;padding:7px 13px;
+        border-bottom:1px solid var(--border);background:var(--card2)">
+        <span style="font-size:10px;font-weight:700;color:var(--faint);
+          background:var(--off);border:1px solid var(--border);
+          padding:2px 7px;border-radius:4px">${m.n}</span>
+        <span style="font-size:10px;color:var(--faint)">${m.d} · ${matchLocalTime(m.d,m.t)}</span>
+        <span style="font-size:9px;color:var(--faint);margin-left:auto">
+          ${predsCount}/${S.players.length} pred · Grupo ${m.g}
+        </span>
+      </div>
+
+      <!-- Teams -->
+      <div style="display:grid;grid-template-columns:1fr auto 1fr;
+        align-items:center;gap:8px;padding:14px 16px">
+        <div style="display:flex;flex-direction:column-reverse;align-items:center;gap:3px">
+          <div style="font-size:11px;font-weight:600;color:var(--faint);
+            max-width:80px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m.h}</div>
+          <div style="font-size:24px;line-height:1">${fl(m.h)}</div>
+        </div>
+        <div style="text-align:center">
+          <div style="font-family:var(--fd);font-size:28px;color:var(--border);line-height:1">? – ?</div>
+          <div style="font-size:9px;color:var(--faint);letter-spacing:.05em;margin-top:2px">POR JUGAR</div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:3px">
+          <div style="font-size:24px;line-height:1">${fl(m.a)}</div>
+          <div style="font-size:11px;font-weight:600;color:var(--faint);
+            max-width:80px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m.a}</div>
+        </div>
+      </div>
+
+    </div>`;
+  });
+  return h;
+}
+
+
+// ════════════════════════════════════════════════════════════
+//  MUNDIAL — Resultados de todos los partidos jugados
+// ════════════════════════════════════════════════════════════
+function rMundial(){
+  const el = document.getElementById("p-mundial");
+  if(!el) return;
+
+  const EDT=4;
+  const MO={Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
+  function kms(m){
+    try{
+      const[mon,day]=m.d.split(" ");
+      const[hh,mm]=m.t.split(":");
+      return Date.UTC(2026,MO[mon],parseInt(day),parseInt(hh)+EDT,parseInt(mm));
+    }catch(e){return Infinity;}
+  }
+
+  const now=Date.now();
+  const todayStr=new Date().toDateString();
+
+  // Get next 2 calendar days after today
+  const d1=new Date(); d1.setDate(d1.getDate()+1);
+  const d2=new Date(); d2.setDate(d2.getDate()+2);
+  const day1Str=d1.toDateString();
+  const day2Str=d2.toDateString();
+
+  const played=[], todayMs=[], day1Ms=[], day2Ms=[];
+  GM.forEach((m,mi)=>{
+    const r=S.real[String(mi)];
+    if(r&&r.h!==undefined&&r.a!==undefined){played.push({m,mi,r});return;}
+    const k=kms(m);
+    const ds=new Date(k).toDateString();
+    if(ds===todayStr)      todayMs.push({m,mi,k});
+    else if(ds===day1Str)  day1Ms.push({m,mi,k});
+    else if(ds===day2Str)  day2Ms.push({m,mi,k});
+  });
+  // Sort each bucket chronologically
+  [todayMs,day1Ms,day2Ms].forEach(b=>b.sort((a,b2)=>a.k-b2.k));
+
+  let h=`
+  <div class="hero" style="margin-bottom:16px">
+    <div class="hero-ey">FIFA World Cup 2026</div>
+    <div class="hero-t">CÓMO VA EL MUNDIAL</div>
+    <div class="hero-s">${played.length} partido${played.length!==1?"s":""} jugado${played.length!==1?"s":""} · ${72-played.length} restantes en grupos</div>
+  </div>`;
+
+  // ── PLAYED results — chronological ───────────────────────
+  if(played.length){
+    played.forEach(({m,mi,r})=>{
+      const hw=r.h>r.a,aw=r.a>r.h,draw=r.h===r.a;
+      h+=`<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r);margin-bottom:8px;overflow:hidden;box-shadow:var(--sh)">
+        <div style="display:flex;align-items:center;gap:7px;padding:7px 13px;border-bottom:1px solid var(--border);background:var(--card2)">
+          <span style="font-size:10px;font-weight:700;color:var(--blue-text);background:var(--blue-bg);border:1px solid var(--blue-border);padding:2px 7px;border-radius:4px">${m.n}</span>
+          <span style="font-size:10px;color:var(--muted)">${m.d} · Grupo ${m.g}</span>
+          <span style="font-size:9px;font-weight:700;color:var(--green-text);background:var(--green-bg);border:1px solid var(--green-border);padding:2px 6px;border-radius:4px;margin-left:auto">✓ Final</span>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;padding:14px 16px">
+          <div style="display:flex;flex-direction:column-reverse;align-items:center;gap:4px;text-align:center">
+            <div style="font-size:12px;font-weight:${hw?900:600};color:${hw?'var(--navy)':'var(--text)'};max-width:90px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m.h}</div>
+            <div style="font-size:28px;line-height:1">${fl(m.h)}</div>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:6px">
+            <div style="display:flex;align-items:center;gap:8px">
+              <div style="position:relative;text-align:center;min-width:28px">
+                ${hw?`<span style="position:absolute;top:-14px;left:50%;transform:translateX(-50%);font-size:13px">⭐</span>`:''}
+                <div style="font-family:var(--fd);font-size:40px;line-height:1;color:${hw?'var(--green)':draw?'var(--navy)':'var(--faint)'}">${r.h}</div>
+              </div>
+              <div style="font-size:22px;font-weight:700;color:var(--border)">–</div>
+              <div style="position:relative;text-align:center;min-width:28px">
+                ${aw?`<span style="position:absolute;top:-14px;left:50%;transform:translateX(-50%);font-size:13px">⭐</span>`:''}
+                <div style="font-family:var(--fd);font-size:40px;line-height:1;color:${aw?'var(--green)':draw?'var(--navy)':'var(--faint)'}">${r.a}</div>
+              </div>
+            </div>
+            ${draw?`<div style="font-size:9px;font-weight:700;color:var(--muted);letter-spacing:.06em">EMPATE</div>`:''}
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:4px;text-align:center">
+            <div style="font-size:28px;line-height:1">${fl(m.a)}</div>
+            <div style="font-size:12px;font-weight:${aw?900:600};color:${aw?'var(--navy)':'var(--text)'};max-width:90px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m.a}</div>
+          </div>
+        </div>
+        <div style="background:var(--card2);border-top:1px solid var(--border);padding:7px 13px;display:flex;align-items:center;gap:5px;flex-wrap:wrap">
+          <span style="font-size:9px;font-weight:700;letter-spacing:.07em;color:var(--muted);text-transform:uppercase;margin-right:3px">Polla:</span>
+          ${S.players.map((pl,pi)=>{
+            const nm=pl.name.split(" ")[0]+" "+(pl.name.split(" ")[1]?pl.name.split(" ")[1][0]+".":"");
+            const pr=S.pred[`${mi}_${pi}`];
+            if(!pr||pr.h===undefined) return `<span style="font-size:9px;color:var(--faint)">${nm} –</span>`;
+            const v=calcPts(r.h,r.a,pr.h,pr.a,false);
+            const bg=v===5?"var(--green-bg)":v===3?"var(--blue-bg)":v===0?"var(--red-bg)":"var(--off)";
+            const col=v===5?"var(--green-text)":v===3?"var(--blue-text)":v===0?"var(--red-text)":"var(--faint)";
+            const brd=v===5?"var(--green-border)":v===3?"var(--blue-border)":v===0?"var(--red-border)":"var(--border)";
+            return `<span style="font-size:9px;font-weight:700;padding:2px 5px;border-radius:4px;background:${bg};color:${col};border:1px solid ${brd};white-space:nowrap">${nm} ${pr.h}:${pr.a}${v!==null?' ('+v+'p)':''}</span>`;
+          }).join("")}
+        </div>
+      </div>`;
+    });
+  } else {
+    h+=`<div class="empty" style="padding:24px 20px 16px">
+      <div style="font-size:32px;margin-bottom:8px">⚽</div>
+      <div style="font-size:13px;font-weight:700;margin-bottom:4px">Aún no hay resultados</div>
+      <div style="font-size:12px;color:var(--muted)">Los partidos aparecen aquí cuando el admin ingresa el resultado.</div>
+    </div>`;
+  }
+
+  // ── TODAY upcoming (in color, not yet played) ─────────────
+  if(todayMs.length){
+    h+=`<div class="phase-sep" style="margin-top:${played.length?'16px':'4px'}">
+      <div class="phase-line"></div>
+      <div class="phase-badge" style="color:var(--blue-text);border-color:var(--blue-border);background:var(--blue-bg)">📅 Hoy</div>
+      <div class="phase-line"></div>
+    </div>`;
+    todayMs.forEach(({m,mi})=>{
+      const pc=S.players.filter((_,pi)=>{const p=S.pred[`${mi}_${pi}`];return p&&p.h!==undefined;}).length;
+      h+=mundialUpcomingCard(m,mi,pc,false);
+    });
+  }
+
+  // ── NEXT 2 DAYS opaque ────────────────────────────────────
+  const opaqueGroups=[
+    {label:d1.toLocaleDateString("es",{weekday:"long",day:"numeric",month:"long"}), matches:day1Ms},
+    {label:d2.toLocaleDateString("es",{weekday:"long",day:"numeric",month:"long"}), matches:day2Ms},
+  ].filter(g=>g.matches.length);
+
+  opaqueGroups.forEach(({label,matches},gi)=>{
+    h+=`<div class="phase-sep" style="margin-top:${gi===0&&(played.length||todayMs.length)?'16px':'8px'}">
+      <div class="phase-line"></div>
+      <div class="phase-badge" style="color:var(--faint);border-color:var(--border)">🔒 ${label}</div>
+      <div class="phase-line"></div>
+    </div>`;
+    matches.forEach(({m,mi})=>{
+      const pc=S.players.filter((_,pi)=>{const p=S.pred[`${mi}_${pi}`];return p&&p.h!==undefined;}).length;
+      h+=mundialUpcomingCard(m,mi,pc,true);
+    });
+  });
+
+  el.innerHTML=h;
+}
+
+// Shared card for upcoming matches in Mundial
+function mundialUpcomingCard(m,mi,pc,opaque){
+  return `<div style="background:var(--card);border:${opaque?'1px solid var(--border)':'1.5px solid var(--blue-border)'};
+    border-radius:var(--r);margin-bottom:8px;overflow:hidden;box-shadow:var(--sh);
+    ${opaque?'opacity:0.45;filter:grayscale(25%);pointer-events:none':''}">
+    <div style="display:flex;align-items:center;gap:7px;padding:7px 13px;
+      border-bottom:1px solid var(--border);
+      background:${opaque?'var(--card2)':'var(--blue-bg)'}">
+      <span style="font-size:10px;font-weight:700;
+        color:${opaque?'var(--faint)':'var(--blue-text)'};
+        background:${opaque?'var(--off)':'#fff'};
+        border:1px solid ${opaque?'var(--border)':'var(--blue-border)'};
+        padding:2px 7px;border-radius:4px">${m.n}</span>
+      <span style="font-size:10px;color:${opaque?'var(--faint)':'var(--blue-text)'};font-weight:600">${matchLocalTime(m.d,m.t)}</span>
+      <span style="font-size:9px;color:var(--muted);margin-left:auto">Grupo ${m.g} · ${pc}/${S.players.length} pred.</span>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;padding:12px 16px">
+      <div style="display:flex;flex-direction:column-reverse;align-items:center;gap:3px;text-align:center">
+        <div style="font-size:11px;font-weight:700;color:${opaque?'var(--faint)':'var(--text)'};
+          max-width:80px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m.h}</div>
+        <div style="font-size:24px;line-height:1">${fl(m.h)}</div>
+      </div>
+      <div style="text-align:center">
+        <div style="font-family:var(--fd);font-size:${opaque?26:22}px;
+          color:${opaque?'var(--border)':'var(--faint)'};line-height:1">
+          ${opaque?'? – ?':'vs'}</div>
+        <div style="font-size:9px;color:var(--faint);margin-top:2px">${m.n}</div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:3px;text-align:center">
+        <div style="font-size:24px;line-height:1">${fl(m.a)}</div>
+        <div style="font-size:11px;font-weight:700;color:${opaque?'var(--faint)':'var(--text)'};
+          max-width:80px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m.a}</div>
+      </div>
+    </div>
+  </div>`;
+}
+
+
+function buildUpcomingLocked(matches){
+  if(!matches.length) return '';
   let h=`<div class="phase-sep" style="margin-top:16px">
     <div class="phase-line"></div>
     <div class="phase-badge" style="color:var(--faint);border-color:var(--border)">🔒 Próximos ${matches.length} partidos</div>
@@ -3046,8 +3306,174 @@ function buildUpcomingLocked(matches){
 }
 
 
+
+// ── PLAYER LOGIN SYSTEM ──────────────────
+let currentPlayer = null;
+
+function _h(s){
+  let h=0;
+  for(let i=0;i<s.length;i++){h=((h<<5)-h)+s.charCodeAt(i);h|=0;}
+  return String(h>>>0);
+}
+function _un(name){
+  const p=name.normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .toLowerCase().replace(/[^a-z0-9 ]/g,'').trim().split(/\s+/);
+  return p.length>=2?p[0]+'.'+p[p.length-1]:p[0];
+}
+function _saveSess(u,pi){
+  try{localStorage.setItem('pm26s',JSON.stringify(
+    {u,pi,t:_h(u+pi+'26'),at:Date.now()}));}catch(e){}
+}
+function _loadSess(){
+  try{
+    const r=localStorage.getItem('pm26s');
+    if(!r)return null;
+    const s=JSON.parse(r);
+    if(s.t!==_h(s.u+s.pi+'26'))return null;
+    if(Date.now()-s.at>30*24*60*60*1000)return null;
+    return s;
+  }catch(e){return null;}
+}
+function _clearSess(){localStorage.removeItem('pm26s');currentPlayer=null;}
+
+function _ensureCreds(){
+  if(!S.creds)S.creds={};
+  S.players.forEach((pl,pi)=>{
+    const u=_un(pl.name);
+    if(!S.creds[u])S.creds[u]={pi,pw:_h('polla2026'),chg:true,ll:null};
+  });
+}
+
+function showLogin(cb){
+  document.getElementById('_pmlogin')?.remove();
+  const d=document.createElement('div');
+  d.id='_pmlogin';d.className='pm-ov';
+  d.innerHTML='<div class="pm-card">'
+    +'<div style="text-align:center;font-size:30px;margin-bottom:6px">⚽</div>'
+    +'<div style="font-family:var(--fd);font-size:24px;color:var(--gold);text-align:center;margin-bottom:4px">MUNDIAL 2026</div>'
+    +'<div style="font-size:11px;color:var(--muted);text-align:center;margin-bottom:18px">Ingresa tus pronósticos</div>'
+    +'<div class="pm-err" id="_pmerr">Usuario o contraseña incorrectos</div>'
+    +'<div style="margin-bottom:12px">'
+      +'<div style="font-size:10px;font-weight:700;color:var(--muted);letter-spacing:.07em;text-transform:uppercase;margin-bottom:5px">Usuario</div>'
+      +'<input class="pm-inp" id="_pmu" type="text" autocomplete="username" placeholder="nombre.apellido" autocapitalize="none" spellcheck="false">'
+    +'</div>'
+    +'<div style="margin-bottom:12px">'
+      +'<div style="font-size:10px;font-weight:700;color:var(--muted);letter-spacing:.07em;text-transform:uppercase;margin-bottom:5px">Contraseña</div>'
+      +'<input class="pm-inp" id="_pmp" type="password" autocomplete="current-password" placeholder="••••••••">'
+    +'</div>'
+    +'<div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);margin-bottom:4px">'
+      +'<input type="checkbox" id="_pmrem" checked style="width:15px;height:15px;accent-color:var(--gold)">'
+      +'<label for="_pmrem">Recordarme en este dispositivo</label>'
+    +'</div>'
+    +'<button class="pm-btn" onclick="_doLogin()">Entrar →</button>'
+    +'</div>';
+  document.body.appendChild(d);
+  d.addEventListener('keydown',e=>{if(e.key==='Enter')_doLogin();});
+  setTimeout(()=>document.getElementById('_pmu')?.focus(),80);
+  window._lgcb=cb||null;
+}
+
+function _doLogin(){
+  _ensureCreds();
+  const u=(document.getElementById('_pmu')?.value||'').trim().toLowerCase();
+  const p=document.getElementById('_pmp')?.value||'';
+  const rem=document.getElementById('_pmrem')?.checked;
+  const err=document.getElementById('_pmerr');
+  const cr=S.creds[u];
+  if(!cr||cr.pw!==_h(p)){err.style.display='block';return;}
+  err.style.display='none';
+  currentPlayer={pi:cr.pi,u,name:S.players[cr.pi]?.name||u};
+  cr.ll=new Date().toISOString();
+  save();
+  if(rem)_saveSess(u,cr.pi);
+  document.getElementById('_pmlogin')?.remove();
+  if(cr.chg){_showChgPw(u,()=>{if(window._lgcb)window._lgcb();else rMiPred();});return;}
+  if(window._lgcb)window._lgcb();else rMiPred();
+}
+
+function _showChgPw(u,cb){
+  document.getElementById('_pmcpw')?.remove();
+  const d=document.createElement('div');
+  d.id='_pmcpw';d.className='pm-ov';d.style.zIndex='800';
+  d.innerHTML='<div class="pm-card">'
+    +'<div style="text-align:center;font-size:26px;margin-bottom:6px">🔑</div>'
+    +'<div style="font-family:var(--fd);font-size:20px;color:var(--gold);text-align:center;margin-bottom:4px">Nueva contraseña</div>'
+    +'<div style="font-size:11px;color:var(--amber-text);text-align:center;margin-bottom:18px">Primera vez — crea tu contraseña personal</div>'
+    +'<div class="pm-err" id="_cpwerr">Las contraseñas no coinciden</div>'
+    +'<div style="margin-bottom:12px">'
+      +'<div style="font-size:10px;font-weight:700;color:var(--muted);letter-spacing:.07em;text-transform:uppercase;margin-bottom:5px">Nueva contraseña</div>'
+      +'<input class="pm-inp" id="_cpwn" type="password" placeholder="mínimo 6 caracteres" autocomplete="new-password">'
+    +'</div>'
+    +'<div style="margin-bottom:12px">'
+      +'<div style="font-size:10px;font-weight:700;color:var(--muted);letter-spacing:.07em;text-transform:uppercase;margin-bottom:5px">Confirmar</div>'
+      +'<input class="pm-inp" id="_cpwc" type="password" placeholder="repite tu contraseña" autocomplete="new-password">'
+    +'</div>'
+    +'<button class="pm-btn" onclick="_doChgPw(\''+u+'\')">Guardar →</button>'
+    +'</div>';
+  document.body.appendChild(d);
+  setTimeout(()=>document.getElementById('_cpwn')?.focus(),80);
+  window._cpwcb=cb;
+}
+
+function _doChgPw(u){
+  const n=document.getElementById('_cpwn')?.value||'';
+  const c2=document.getElementById('_cpwc')?.value||'';
+  const err=document.getElementById('_cpwerr');
+  if(n.length<6){err.textContent='Mínimo 6 caracteres';err.style.display='block';return;}
+  if(n!==c2){err.textContent='No coinciden';err.style.display='block';return;}
+  S.creds[u].pw=_h(n);S.creds[u].chg=false;save();
+  document.getElementById('_pmcpw')?.remove();
+  toast('✓ Contraseña guardada');
+  if(window._cpwcb)window._cpwcb();
+}
+
+function _playerLogout(){_clearSess();currentPlayer=null;rMiPred();toast('Sesión cerrada');}
+
+function _uPanel(){
+  _ensureCreds();
+  return S.players.map((pl,pi)=>{
+    const u=_un(pl.name);
+    const cr=S.creds[u]||{};
+    const ll=cr.ll?new Date(cr.ll).toLocaleString('es'):'Nunca';
+    return '<div style="padding:10px 0;border-bottom:1px solid var(--border)">'
+      +'<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
+      +'<div style="width:34px;height:34px;border-radius:50%;background:'+AVC[pi%AVC.length]+';'
+        +'display:flex;align-items:center;justify-content:center;font-family:var(--fd);'
+        +'font-size:13px;color:#fff;flex-shrink:0">'+ini(pl.name)+'</div>'
+      +'<div style="flex:1;min-width:0">'
+        +'<div style="font-size:13px;font-weight:700">'+pl.name+'</div>'
+        +'<div style="font-size:10px;color:var(--muted)">👤 '+u
+          +(cr.chg?' <span style="color:var(--amber-text)">⚠ Clave no cambiada</span>':'')+'</div>'
+        +'<div style="font-size:10px;color:var(--faint)">🕐 '+ll+'</div>'
+      +'</div>'
+      +'<button onclick="_resetPw(\''+u+'\',\''+pl.name+'\')" '
+        +'style="font-size:11px;font-weight:700;padding:5px 10px;border-radius:var(--r-sm);'
+        +'border:1.5px solid var(--amber-border);background:var(--amber-bg);'
+        +'color:var(--amber-text);cursor:pointer;font-family:var(--fb)">'
+        +'🔑 Resetear</button>'
+      +'</div></div>';
+  }).join('');
+}
+
+function _resetPw(u,name){
+  if(!isAdmin){toast('Solo admin','err');return;}
+  if(!confirm('¿Resetear contraseña de '+name+'?\nVuelve a "polla2026"'))return;
+  _ensureCreds();
+  if(!S.creds[u])S.creds[u]={};
+  S.creds[u].pw=_h('polla2026');S.creds[u].chg=true;
+  save();
+  const el=document.getElementById('_upanel');
+  if(el)el.innerHTML=_uPanel();
+  toast('✓ '+name+' → clave reseteada a "polla2026"');
+}
+
 // INIT
 rInfo();
+// Auto-login
+try{_ensureCreds();const _s=_loadSess();
+if(_s){const _cr=S.creds[_s.u];
+if(_cr&&_cr.pi===_s.pi)currentPlayer={pi:_s.pi,u:_s.u,name:S.players[_s.pi]?.name||_s.u};
+}}catch(e){}
 
 </script>
 </body>
