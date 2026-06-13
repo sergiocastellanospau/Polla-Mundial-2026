@@ -547,8 +547,7 @@ body{padding-bottom:calc(72px + var(--safe-bot))}
 
 
 /* ── PLAYER LOGIN ─────────────────── */
-.pm-ov{position:fixed;inset:0;z-index:700;background:linear-gradient(160deg,#0D1B2A,#1a2d4a);
-  display:flex;align-items:center;justify-content:center;padding:20px}
+/* pm-ov removed */
 .pm-card{background:var(--card);border-radius:var(--r-lg);padding:28px 24px;
   width:100%;max-width:340px;box-shadow:0 8px 40px rgba(0,0,0,.4)}
 .pm-inp{width:100%;padding:11px 13px;border-radius:var(--r-sm);
@@ -3368,32 +3367,38 @@ function _ensureCreds(){
 }
 
 function showLogin(cb){
-  document.getElementById('_pmlogin')?.remove();
-  const d=document.createElement('div');
-  d.id='_pmlogin';d.className='pm-ov';
-  d.innerHTML='<div class="pm-card">'
-    +'<div style="text-align:center;font-size:30px;margin-bottom:6px">⚽</div>'
-    +'<div style="font-family:var(--fd);font-size:24px;color:var(--gold);text-align:center;margin-bottom:4px">MUNDIAL 2026</div>'
-    +'<div style="font-size:11px;color:var(--muted);text-align:center;margin-bottom:18px">Ingresa tus pronósticos</div>'
-    +'<div class="pm-err" id="_pmerr">Usuario o contraseña incorrectos</div>'
-    +'<div style="margin-bottom:12px">'
-      +'<div style="font-size:10px;font-weight:700;color:var(--muted);letter-spacing:.07em;text-transform:uppercase;margin-bottom:5px">Usuario</div>'
-      +'<input class="pm-inp" id="_pmu" type="text" autocomplete="username" placeholder="nombre.apellido" autocapitalize="none" spellcheck="false">'
-    +'</div>'
-    +'<div style="margin-bottom:12px">'
-      +'<div style="font-size:10px;font-weight:700;color:var(--muted);letter-spacing:.07em;text-transform:uppercase;margin-bottom:5px">Contraseña</div>'
-      +'<input class="pm-inp" id="_pmp" type="password" autocomplete="current-password" placeholder="••••••••">'
-    +'</div>'
-    +'<div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);margin-bottom:4px">'
-      +'<input type="checkbox" id="_pmrem" checked style="width:15px;height:15px;accent-color:var(--gold)">'
-      +'<label for="_pmrem">Recordarme en este dispositivo</label>'
-    +'</div>'
-    +'<button class="pm-btn" onclick="_doLogin()">Entrar →</button>'
-    +'</div>';
-  document.body.appendChild(d);
-  d.addEventListener('keydown',e=>{if(e.key==='Enter')_doLogin();});
+  window._lgcb = cb||null;
+  document.getElementById("modal-root").innerHTML=`
+  <div class="overlay" onclick="if(event.target===this)closeModal()" style="z-index:400">
+    <div class="modal" style="max-width:340px">
+      <div style="font-size:36px;text-align:center;margin-bottom:8px">⚽</div>
+      <div style="font-size:16px;font-weight:700;text-align:center;margin-bottom:4px">Mis pronósticos</div>
+      <div style="font-size:12px;color:var(--muted);text-align:center;margin-bottom:16px">Ingresa con tu usuario y contraseña</div>
+      <div style="margin-bottom:10px">
+        <div style="font-size:10px;font-weight:700;color:var(--muted);letter-spacing:.07em;text-transform:uppercase;margin-bottom:5px">Usuario</div>
+        <input class="inp" type="text" id="_pmu" autocomplete="username"
+          placeholder="nombre.apellido" autocapitalize="none" spellcheck="false"
+          style="margin-bottom:0">
+      </div>
+      <div style="margin-bottom:10px">
+        <div style="font-size:10px;font-weight:700;color:var(--muted);letter-spacing:.07em;text-transform:uppercase;margin-bottom:5px">Contraseña</div>
+        <input class="inp" type="password" id="_pmp" autocomplete="current-password"
+          placeholder="••••••••"
+          onkeydown="if(event.key==='Enter')_doLogin()"
+          style="margin-bottom:0">
+      </div>
+      <div style="color:var(--red-text);font-size:11px;min-height:16px;margin-bottom:10px" id="_pmerr"></div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;font-size:12px;color:var(--muted)">
+        <input type="checkbox" id="_pmrem" checked style="width:15px;height:15px;accent-color:var(--gold)">
+        <label for="_pmrem">Recordarme en este dispositivo</label>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:center">
+        <button class="btn btn-ghost btn-sm" onclick="closeModal()">Cancelar</button>
+        <button class="btn btn-gold" onclick="_doLogin()">Entrar</button>
+      </div>
+    </div>
+  </div>`;
   setTimeout(()=>document.getElementById('_pmu')?.focus(),80);
-  window._lgcb=cb||null;
 }
 
 function _doLogin(){
@@ -3409,7 +3414,7 @@ function _doLogin(){
   cr.ll=new Date().toISOString();
   save();
   if(rem)_saveSess(u,cr.pi);
-  document.getElementById('_pmlogin')?.remove();
+  closeModal();
   if(window._lgcb)window._lgcb();else rMiPred();
   // Non-blocking password change reminder
   if(cr.chg){
@@ -3420,37 +3425,29 @@ function _doLogin(){
 }
 
 function _showChgPw(u,cb){
-  document.getElementById('_pmcpw')?.remove();
-  const d=document.createElement('div');
-  d.id='_pmcpw';d.className='pm-ov';d.style.zIndex='800';
-  // Build innerHTML safely without nested quote issues
-  const card=document.createElement('div');
-  card.className='pm-card';
-  card.innerHTML=[
-    '<div style="text-align:center;font-size:26px;margin-bottom:6px">🔑</div>',
-    '<div style="font-family:var(--fd);font-size:20px;color:var(--gold);text-align:center;margin-bottom:4px">Nueva contraseña</div>',
-    '<div style="font-size:11px;color:var(--amber-text);text-align:center;margin-bottom:18px">Primera vez — crea tu contraseña personal</div>',
-    '<div class="pm-err" id="_cpwerr">Las contraseñas no coinciden</div>',
-    '<div style="margin-bottom:12px">',
-      '<div style="font-size:10px;font-weight:700;color:var(--muted);letter-spacing:.07em;text-transform:uppercase;margin-bottom:5px">Nueva contraseña</div>',
-      '<input class="pm-inp" id="_cpwn" type="password" placeholder="mínimo 6 caracteres" autocomplete="new-password">',
-    '</div>',
-    '<div style="margin-bottom:12px">',
-      '<div style="font-size:10px;font-weight:700;color:var(--muted);letter-spacing:.07em;text-transform:uppercase;margin-bottom:5px">Confirmar</div>',
-      '<input class="pm-inp" id="_cpwc" type="password" placeholder="repite tu contraseña" autocomplete="new-password">',
-    '</div>',
-    '<button class="pm-btn" id="_cpwbtn">Guardar →</button>',
-  ].join('');
-  d.appendChild(card);
-  document.body.appendChild(d);
-  // Attach click handler after DOM is ready
-  setTimeout(()=>{
-    const btn=document.getElementById('_cpwbtn');
-    if(btn) btn.onclick=()=>_doChgPw(u);
-  },10);
-  d.addEventListener('keydown',e=>{if(e.key==='Enter')_doChgPw(u);});
+  window._cpwcb = cb;
+  document.getElementById("modal-root").innerHTML=`
+  <div class="overlay" style="z-index:400">
+    <div class="modal" style="max-width:340px">
+      <div style="font-size:28px;text-align:center;margin-bottom:8px">🔑</div>
+      <div style="font-size:16px;font-weight:700;text-align:center;margin-bottom:4px">Nueva contraseña</div>
+      <div style="font-size:12px;color:var(--amber-text);text-align:center;margin-bottom:16px">Crea tu contraseña personal para próximos ingresos</div>
+      <div style="color:var(--red-text);font-size:11px;min-height:16px;margin-bottom:8px" id="_cpwerr"></div>
+      <div style="margin-bottom:10px">
+        <div style="font-size:10px;font-weight:700;color:var(--muted);letter-spacing:.07em;text-transform:uppercase;margin-bottom:5px">Nueva contraseña</div>
+        <input class="inp" type="password" id="_cpwn" placeholder="mínimo 6 caracteres" autocomplete="new-password" style="margin-bottom:0">
+      </div>
+      <div style="margin-bottom:14px">
+        <div style="font-size:10px;font-weight:700;color:var(--muted);letter-spacing:.07em;text-transform:uppercase;margin-bottom:5px">Confirmar</div>
+        <input class="inp" type="password" id="_cpwc" placeholder="repite tu contraseña" autocomplete="new-password"
+          onkeydown="if(event.key==='Enter')_doChgPw('${u}')"
+          style="margin-bottom:0">
+      </div>
+      <button class="btn btn-gold" style="width:100%;justify-content:center"
+        onclick="_doChgPw('${u}')">Guardar contraseña</button>
+    </div>
+  </div>`;
   setTimeout(()=>document.getElementById('_cpwn')?.focus(),80);
-  window._cpwcb=cb;
 }
 
 function _doChgPw(u){
@@ -3460,7 +3457,7 @@ function _doChgPw(u){
   if(n.length<6){err.textContent='Mínimo 6 caracteres';err.style.display='block';return;}
   if(n!==c2){err.textContent='No coinciden';err.style.display='block';return;}
   S.creds[u].pw=_h(n);S.creds[u].chg=false;save();
-  document.getElementById('_pmcpw')?.remove();
+  closeModal();
   toast('✓ Contraseña guardada');
   if(window._cpwcb)window._cpwcb();
 }
