@@ -746,7 +746,7 @@ const KO_LBL={R32:"Ronda de 32",R16:"Octavos de final",QF:"Cuartos de final",SF:
 
 const DEFAULT_PLAYERS=[{"name": "Alvaro Arias", "paid": true}, {"name": "Andres Perilla", "paid": true}, {"name": "Cesar Andres Tara", "paid": false}, {"name": "Daniel Trejo", "paid": false}, {"name": "Eduardo Peñuela", "paid": false}, {"name": "Edwin Rodríguez", "paid": false}, {"name": "Javier Rodriguez", "paid": false}, {"name": "Jhonatan Agudelo", "paid": true}, {"name": "Jhony Moreno", "paid": false}, {"name": "Junior Hurtado", "paid": true}, {"name": "Nacho Carrera", "paid": true}, {"name": "Samuel Peñuela", "paid": true}, {"name": "Samuel Rodriguez", "paid": false}, {"name": "Sergio Castellanos", "paid": true}];
 
-let S={players:[...DEFAULT_PLAYERS.map(p=>({...p}))],real:{"0":{h:2,a:0}},pred:{},playerPins:{},ko:{},koPred:{},deadline:"2026-06-10",cuota:100,adminPin:"2026",adminName:"Sergio Castellanos",currency:{code:"USD",symbol:"$",locale:"en-US"},pendingRequests:[]};
+let S={players:[...DEFAULT_PLAYERS.map(p=>({...p}))],real:{"0":{h:2,a:0}},pred:{},predTs:{},playerPins:{},ko:{},koPred:{},deadline:"2026-06-10",cuota:100,adminPin:"2026",adminName:"Sergio Castellanos",currency:{code:"USD",symbol:"$",locale:"en-US"},pendingRequests:[]};
 let isAdmin=false;
 let currentPlayer=null; // {pi, name} when a player is logged in
 
@@ -836,6 +836,7 @@ function save(){
       players:         S.players,
       real:            S.real,
       pred:            S.pred,
+      predTs:          S.predTs||{},
       playerPins:      S.playerPins||{},
       ko:              S.ko,
       koPred:          S.koPred,
@@ -858,6 +859,7 @@ function load(){
       // Merge carefully — don't let cached empty values overwrite official data
       if(saved.players && saved.players.length) S.players = saved.players;
       if(saved.pred) S.pred = saved.pred;
+      if(saved.predTs) S.predTs = saved.predTs;
       if(saved.playerPins) S.playerPins = saved.playerPins;
       if(saved.ko) S.ko = saved.ko;
       if(saved.koPred) S.koPred = saved.koPred;
@@ -1794,7 +1796,12 @@ function savePred(mi,pi){
   if(h===""||a===""||h===undefined||a===undefined){
     toast("Ingresa los dos goles","err");return;
   }
-  S.pred[`${mi}_${pi}`]={h:+h,a:+a};
+  const _key=`${mi}_${pi}`;
+  S.pred[_key]={h:+h,a:+a};
+  // Save timestamp — immutable first save, admin override flagged
+  if(!S.predTs) S.predTs={};
+  if(!S.predTs[_key]) S.predTs[_key]=new Date().toISOString();
+  else if(isAdmin) S.predTs[_key+'_ed']=true;
   save();
   toast(`✓ Pronóstico de ${S.players[pi].name} guardado`);
   renderPlanillaForm();
@@ -3077,12 +3084,18 @@ function rMiPredForm(el){
     const r   = S.real[String(mi)];
     const v   = r&&pr.h!==undefined?calcPts(r.h,r.a,pr.h,pr.a,false):null;
     const cls = v===null?"pt-n":v===0?"pt-0":v===3?"pt-3":v===5?"pt-5":"pt-7";
-    return `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)">
+    const _ts = S.predTs&&S.predTs[key];
+    const _tsFmt = _ts ? new Date(_ts).toLocaleString("es",{month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"}) : null;
+    const _tsEd = S.predTs&&S.predTs[key+"_ed"];
+    return `<div style="border-bottom:1px solid var(--border);padding:6px 0">
+      <div style="display:flex;align-items:center;gap:8px">
       <div style="font-size:10px;color:var(--muted);min-width:28px">${m.n}</div>
       <div style="flex:1;font-size:12px">${fl(m.h)} ${m.h} <span style="color:var(--faint)">vs</span> ${fl(m.a)} ${m.a}</div>
       <div style="font-size:11px;color:var(--muted)">${pr.h!==undefined?pr.h+"–"+pr.a:"–"}</div>
       <div style="font-size:11px;font-weight:700;color:var(--navy);min-width:30px;text-align:center">${r?r.h+"–"+r.a:"?"}</div>
       <span class="ptag ${cls}">${v!==null?v+"p":"–"}</span>
+      </div>
+      ${isAdmin&&_tsFmt?`<div style="font-size:9px;color:var(--faint);padding-left:36px;margin-top:1px">🕐 ${_tsFmt}${_tsEd?" · admin":""}</div>`:""}
     </div>`;
   }).join("");
 
@@ -3117,7 +3130,7 @@ function rMiPredForm(el){
   <div class="sec-title" style="margin-bottom:10px">✏️ Ingresar mis pronósticos</div>
   <div style="font-size:12px;color:var(--muted);margin-bottom:12px;padding:8px 12px;
     background:var(--amber-bg);border:1px solid var(--amber-border);border-radius:var(--r-sm);color:var(--amber-text)">
-    ⏰ Los pronósticos se cierran <strong>10 minutos antes</strong> de cada partido.
+    ⏰ Los pronósticos se cierran <strong>1 hora antes</strong> de cada partido.
     Una vez que el admin ingresa el resultado, ya no puedes cambiarlos.
   </div>
   ${upcoming.length > 0
@@ -3163,7 +3176,7 @@ function saveMyPred(mi, pi){
 }
 
 
-// Returns true if match is locked (10 min before kickoff or already played)
+// Returns true if match is locked (1 hora before kickoff or already played)
 function isMatchLocked(m){
   if(!m.d || !m.t) return false;
   try{
