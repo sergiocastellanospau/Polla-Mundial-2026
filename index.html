@@ -779,7 +779,7 @@ const KO_LBL={R32:"Ronda de 32",R16:"Octavos de final",QF:"Cuartos de final",SF:
 
 const DEFAULT_PLAYERS=[{"name": "Alvaro Arias", "paid": true}, {"name": "Andres Perilla", "paid": true}, {"name": "Cesar Andres Tara", "paid": false}, {"name": "Daniel Trejo", "paid": false}, {"name": "Eduardo Peñuela", "paid": false}, {"name": "Edwin Rodríguez", "paid": false}, {"name": "Javier Rodriguez", "paid": false}, {"name": "Jhonatan Agudelo", "paid": true}, {"name": "Jhony Moreno", "paid": false}, {"name": "Junior Hurtado", "paid": true}, {"name": "Nacho Carrera", "paid": true}, {"name": "Samuel Peñuela", "paid": true}, {"name": "Samuel Rodriguez", "paid": false}, {"name": "Sergio Castellanos", "paid": true}];
 
-let S={players:[...DEFAULT_PLAYERS.map(p=>({...p}))],real:{"0":{h:2,a:0},"1":{h:2,a:1},"6":{h:1,a:1},"7":{h:2,a:0},"12":{h:0,a:1},"13":{h:1,a:1},"18":{h:4,a:1},"19":{h:1,a:1},"24":{h:2,a:2},"25":{h:7,a:1},"30":{h:1,a:0},"31":{h:5,a:1}},pred:{},ko:{"r32_1":{h:"Sudáfrica",a:"Canadá"},"r32_2":{h:"Alemania",a:"Paraguay"},"r32_3":{h:"Países Bajos",a:"Marruecos"},"r32_4":{h:"Brasil",a:"Japón"},"r32_5":{h:"Francia",a:"Suecia"},"r32_6":{h:"C. de Marfil",a:"Noruega"},"r32_7":{h:"México",a:"Ecuador"},"r32_8":{h:"Inglaterra",a:"Congo RD"},"r32_9":{h:"Bélgica",a:"Senegal"},"r32_10":{h:"USA",a:"Bosnia y Herz."},"r32_11":{h:"España",a:"Austria"},"r32_12":{h:"Portugal",a:"Croacia"},"r32_13":{h:"Suiza",a:"Argelia"},"r32_14":{h:"Argentina",a:"Cabo Verde"},"r32_15":{h:"Colombia",a:"Ghana"},"r32_16":{h:"Australia",a:"Egipto"}},koPred:{},deadline:"2026-06-10",cuota:100,adminPin:"123098",adminName:"Sergio Castellanos",currency:{code:"USD",symbol:"$",locale:"en-US"},pendingRequests:[]};
+let S={players:[...DEFAULT_PLAYERS.map(p=>({...p}))],real:{"0":{h:2,a:0}},pred:{},ko:{},koPred:{},deadline:"2026-06-10",cuota:100,adminPin:"2026",adminName:"Sergio Castellanos",currency:{code:"USD",symbol:"$",locale:"en-US"},pendingRequests:[]};
 let isAdmin=false;
 
 // ════════════════════════════════════════════════════════════
@@ -820,7 +820,7 @@ function fbInit(){
         const officialReal = {"0":{h:2,a:0}}; // México 2-0 Sudáfrica (oficial)
         S.real = Object.assign(officialReal, data.real||{});
         S.pred           = data.pred           || {};
-        S.ko             = (data.ko&&Object.values(data.ko).some(v=>v&&v.h)) ? data.ko : Object.assign({},S.ko,data.ko||{});
+        S.ko             = data.ko             || {};
         S.koPred         = data.koPred         || {};
         S.deadline       = data.deadline       || S.deadline;
         S.cuota          = data.cuota          || S.cuota;
@@ -948,22 +948,19 @@ try{
 }catch(e){}
 
 // SCORING — Grupos: 3=resultado,5=exacto | KO: 3/5 normal + 7=empate+ganadorPen / 10=exacto+ganadorPen
-function calcPts(rh,ra,ph,pa,isKO,opts){
+function calcPts(rh,ra,ph,pa,isKO,rPenW,pPenW){
   if([rh,ra,ph,pa].some(x=>x===undefined||x===null||x===""))return null;
   rh=+rh;ra=+ra;ph=+ph;pa=+pa;
   const exact=(rh===ph&&ra===pa);
   const rr=rh>ra?"H":rh<ra?"A":"D", pr=ph>pa?"H":ph<pa?"A":"D";
   const rightRes=(rr===pr);
-  let pts=exact?5:rightRes?3:0;
-  if(!isKO||!opts||pts===0)return pts;
-  const {rEth,rEta,pEth,pEta,rPenW,pPenW}=opts;
-  if(rEth!==undefined&&rEta!==undefined&&pEth!==undefined&&pEta!==undefined){
-    if(+rEth===+pEth&&+rEta===+pEta){
-      pts+=5;
-      if(rPenW&&pPenW&&rPenW===pPenW)pts+=5;
-    }
-  }
-  return pts;
+  if(!isKO){return exact?5:rightRes?3:0;}
+  const draw=(rh===ra);
+  if(!draw){return exact?5:rightRes?3:0;}
+  // Draw in KO -> penales
+  if(!rPenW||!pPenW)return exact?5:3;
+  const rightPen=(rPenW===pPenW);
+  return exact&&rightPen?10:rightPen?7:3;
 }
 
 function matchLocalTime(d, t){
@@ -1256,8 +1253,7 @@ function rPartidos(){
           <input class="sc-inp" type="number" min="0" max="99" placeholder="–" value="${r.h!==undefined?r.h:""}" data-mi="${mi}" data-side="h" oninput="onReal(this)">
           <span class="sc-sep">:</span>
           <input class="sc-inp" type="number" min="0" max="99" placeholder="–" value="${r.a!==undefined?r.a:""}" data-mi="${mi}" data-side="a" oninput="onReal(this)">
-        </div><div class="mc-vs" style="font-size:9px">RESULTADO 90 MIN</div>
-        ${adminKoInputs(mi,m,r)}<div class="mc-vs">RESULTADO REAL</div>`
+        </div><div class="mc-vs">RESULTADO REAL</div>`
       :`<div style="display:flex;gap:6px;align-items:center">
           <span style="font-family:var(--fd);font-size:30px;color:var(--navy);min-width:22px;text-align:center">${hasR?r.h:"–"}</span>
           <span style="font-size:16px;color:var(--border)">:</span>
@@ -2250,7 +2246,7 @@ function clearAll(){if(!confirm("¿Resetear TODO? Se perderán todos los datos."
 function onReal(inp){
   if(!isAdmin)return;
   const mi=+inp.dataset.mi, mik=String(mi), side=inp.dataset.side;
-  const val=side==="winner"?(inp.value===""?undefined:inp.value):(inp.value===""?undefined:+inp.value);
+  const val=inp.value===""?undefined:+inp.value;
   if(!S.real[mik])S.real[mik]={};
   if(val===undefined)delete S.real[mik][side];else S.real[mik][side]=val;
   if(S.real[mik].h===undefined&&S.real[mik].a===undefined)delete S.real[mik];
@@ -3038,7 +3034,7 @@ function isMatchLocked(m){
     const utcH = parseInt(hh) + 4; // EDT offset
     const matchUTC = Date.UTC(2026, months[mon], parseInt(day), utcH, parseInt(mm), 0);
     const nowUTC = Date.now();
-    const tenMin = 60 * 60 * 1000;
+    const tenMin = 10 * 60 * 1000;
     return nowUTC >= matchUTC - tenMin;
   }catch(e){ return false; }
 }
@@ -3316,24 +3312,6 @@ function buildUpcomingLocked(matches){
 }
 
 
-
-function adminKoInputs(mi,m,r){
-  if(!['R32','R16','QF','SF','3P','FIN'].includes(m.g)) return '';
-  return '<div style="margin-top:5px;padding:6px 8px;background:rgba(201,168,67,.07);border:1px solid rgba(201,168,67,.2);border-radius:6px">'
-    +'<div style="font-size:9px;font-weight:700;color:#C9A843;margin-bottom:4px">⚡ TIEMPO EXTRA</div>'
-    +'<div style="display:flex;align-items:center;gap:4px;margin-bottom:5px">'
-    +'<input class="sc-inp" type="number" min="0" max="20" placeholder="\u2013" style="width:40px;text-align:center" value="'+(r.eth!==undefined?r.eth:'')+'" data-mi="'+mi+'" data-side="eth" oninput="onReal(this)">'
-    +'<span class="sc-sep">:</span>'
-    +'<input class="sc-inp" type="number" min="0" max="20" placeholder="\u2013" style="width:40px;text-align:center" value="'+(r.eta!==undefined?r.eta:'')+'" data-mi="'+mi+'" data-side="eta" oninput="onReal(this)">'
-    +'<span style="font-size:9px;color:#888;margin-left:3px">incl. 90min</span>'
-    +'</div>'
-    +'<div style="font-size:9px;font-weight:700;color:#C9A843;margin-bottom:4px">\uD83E\uDDB3 GANADOR EN PENALES</div>'
-    +'<select data-mi="'+mi+'" data-side="winner" onchange="onReal(this)" style="width:100%;padding:4px 6px;border-radius:5px;border:1px solid #ddd;background:#f9f9f9;font-size:11px">'
-    +'<option value="">Sin penales</option>'
-    +'<option value="'+m.h+'"'+(r.winner===m.h?' selected':'')+'>'+m.h+'</option>'
-    +'<option value="'+m.a+'"'+(r.winner===m.a?' selected':'')+'>'+m.a+'</option>'
-    +'</select></div>';
-}
 // INIT
 rInfo();
 
