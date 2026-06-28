@@ -904,7 +904,10 @@ function fbInit(){
         S.real = Object.assign(officialReal, data.real||{});
         S.pred           = data.pred           || {};
         S.playerPins     = data.playerPins     || {};
-        S.ko             = Object.keys(data.ko||{}).length ? data.ko : S.ko;
+        // Merge Firebase ko with defaults - keep Firebase if it has R32 team data
+        const _fbKo = data.ko||{};
+        const _hasTeams = Object.values(_fbKo).some(v=>v&&v.h&&v.h!=='TBD');
+        S.ko = _hasTeams ? _fbKo : Object.assign({}, S.ko, _fbKo);
         S.koPred         = data.koPred         || {};
         S.deadline       = data.deadline       || S.deadline;
         S.cuota          = data.cuota          || S.cuota;
@@ -1490,7 +1493,11 @@ function buildMatchCard(m,mi){
       <div class="mc-preds-lbl">Pronósticos ${isAdmin?"(editable)":"(solo lectura)"}</div>
       <div class="preds-grid">${S.players.map((pl,pi)=>{
         const key=`${mi}_${pi}`,pr=S.pred[key]||{};
-        const v=hasR&&pr.h!==undefined&&pr.a!==undefined?calcPts(r.h,r.a,pr.h,pr.a,false):null;
+        const _isKO=['R32','R16','QF','SF','3P','FIN'].includes(m.g);
+        const v=hasR&&pr.h!==undefined&&pr.a!==undefined
+          ?calcPts(r.h,r.a,pr.h,pr.a,_isKO,
+            _isKO?{rEth:r.eth,rEta:r.eta,pEth:pr.eth,pEta:pr.eta,rPenW:r.winner,pPenW:pr.penW}:null)
+          :null;
         const cls=v===null?"pt-n":v===0?"pt-0":v===3?"pt-3":v===5?"pt-5":"pt-7";
         const ts=isAdmin&&S.predTs&&S.predTs[key]
           ?`<div style="font-size:8px;color:var(--faint);margin-top:1px">`
@@ -1508,6 +1515,12 @@ function buildMatchCard(m,mi){
             <span class="ptag ${cls}">${v!==null?v+"p":"–"}</span>
           </div>
           ${ts}
+          ${(pr.eth!==undefined&&pr.eta!==undefined)||pr.penW?`
+          <div style="font-size:9px;color:var(--faint);margin-top:2px;padding:2px 4px;
+            background:rgba(201,168,67,.07);border-radius:3px;text-align:center">
+            ${pr.eth!==undefined&&pr.eta!==undefined?`⚡ ET: ${pr.eth}–${pr.eta}`:""}
+            ${pr.penW?`${pr.eth!==undefined?" · ":""}🥅 ${pr.penW}`:""}
+          </div>`:""}
         </div>`;
       }).join("")}</div>
     </div>
@@ -2488,6 +2501,15 @@ function rAdmin(){
       <button class="btn btn-red btn-sm" onclick="clearResults()">Borrar todos los resultados</button>
       <button class="btn btn-red btn-sm" onclick="clearAll()">Resetear todo</button>
     </div>
+  </div>
+  <div class="adm-section">
+    <div class="adm-sec-title"><i class="ti ti-tournament"></i>Bracket — Equipos R32</div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:10px">
+      Si el bracket muestra TBD, usa este botón para sincronizar los equipos a Firebase.
+    </div>
+    <button class="btn btn-navy" onclick="syncKoTeams()">
+      <i class="ti ti-refresh"></i>Sincronizar equipos del bracket
+    </button>
   </div>
   <div class="adm-section">
     <div class="adm-sec-title"><i class="ti ti-key"></i>PINs de jugadores</div>
@@ -3973,6 +3995,37 @@ function buildUpcomingLocked(matches){
 }
 
 
+
+function syncKoTeams(){
+  // R32 teams from official bracket
+  const r32Teams = {
+    'r32_1': {h:'Sudáfrica',a:'Canadá'},
+    'r32_2': {h:'Alemania',a:'Paraguay'},
+    'r32_3': {h:'Países Bajos',a:'Marruecos'},
+    'r32_4': {h:'Brasil',a:'Japón'},
+    'r32_5': {h:'Francia',a:'Suecia'},
+    'r32_6': {h:'C. de Marfil',a:'Noruega'},
+    'r32_7': {h:'México',a:'Ecuador'},
+    'r32_8': {h:'Inglaterra',a:'Congo RD'},
+    'r32_9': {h:'Bélgica',a:'Senegal'},
+    'r32_10':{h:'USA',a:'Bosnia y Herz.'},
+    'r32_11':{h:'España',a:'Austria'},
+    'r32_12':{h:'Portugal',a:'Croacia'},
+    'r32_13':{h:'Suiza',a:'Argelia'},
+    'r32_14':{h:'Argentina',a:'Cabo Verde'},
+    'r32_15':{h:'Colombia',a:'Ghana'},
+    'r32_16':{h:'Australia',a:'Egipto'},
+  };
+  // Merge with existing ko (don't overwrite results already entered)
+  Object.entries(r32Teams).forEach(([id,teams])=>{
+    if(!S.ko[id]) S.ko[id]={};
+    if(!S.ko[id].h) S.ko[id].h=teams.h;
+    if(!S.ko[id].a) S.ko[id].a=teams.a;
+  });
+  save();
+  rBracket();
+  toast('✅ Equipos del bracket sincronizados');
+}
 // INIT
 rInfo();
 
