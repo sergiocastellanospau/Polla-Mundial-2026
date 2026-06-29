@@ -549,6 +549,34 @@ body{padding-bottom:calc(72px + var(--safe-bot))}
 /* Player PIN Modal */
 .pm-ov{position:fixed;inset:0;z-index:400;display:flex;align-items:center;justify-content:center;
   background:rgba(13,27,42,.7);padding:20px}
+
+/* ── MOBILE MENU ─────────────────────────── */
+.mob-menu-btn{display:none;background:none;border:1.5px solid rgba(201,168,67,.4);
+  color:var(--gold);font-size:15px;font-weight:700;cursor:pointer;
+  padding:4px 10px;border-radius:var(--r-sm);flex-shrink:0;letter-spacing:.1em}
+.mob-ov{position:fixed;inset:0;z-index:500;background:rgba(13,27,42,.7);display:none}
+.mob-ov.open{display:block}
+.mob-panel{position:fixed;top:0;right:0;bottom:0;z-index:501;width:230px;
+  background:var(--card);box-shadow:-4px 0 30px rgba(0,0,0,.4);
+  display:flex;flex-direction:column;transform:translateX(100%);
+  transition:transform .25s ease}
+.mob-panel.open{transform:translateX(0)}
+.mob-ph{padding:14px 16px 10px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between}
+.mob-pt{font-family:var(--fd);font-size:15px;color:var(--gold)}
+.mob-px{background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;padding:4px}
+.mob-items{flex:1;overflow-y:auto;padding:6px 0}
+.mob-item{display:flex;align-items:center;gap:10px;padding:13px 16px;border:none;
+  background:none;width:100%;text-align:left;cursor:pointer;font-size:13px;
+  font-family:var(--fb);color:var(--text);border-bottom:1px solid var(--border)}
+.mob-item:active{background:var(--off)}
+.mob-item.on{color:var(--gold);font-weight:700;background:var(--off)}
+.mob-div{height:1px;background:var(--border);margin:4px 0}
+@media(max-width:768px){
+  .mob-menu-btn{display:flex;align-items:center}
+  .nav-scr{display:none}
+}
+
 </style>
 
 <!-- Firebase SDK (compat = global firebase variable) -->
@@ -577,8 +605,32 @@ body{padding-bottom:calc(72px + var(--safe-bot))}
       <button class="nb" onclick="go('mipred')">✏️ Mi pronóstico</button>
       <button class="nb" onclick="go('admin')">Admin<span class="adot"></span></button>
     </div>
+    <button class="mob-menu-btn" onclick="openMobMenu()">···</button>
   </div>
 </nav>
+
+<div class="mob-ov" id="mob-ov" onclick="closeMobMenu()"></div>
+<div class="mob-panel" id="mob-panel">
+  <div class="mob-ph">
+    <span class="mob-pt">⚽ MENÚ</span>
+    <button class="mob-px" onclick="closeMobMenu()">✕</button>
+  </div>
+  <div class="mob-items">
+    <button class="mob-item" onclick="mobGo('tabla')">🏆 Tabla</button>
+    <button class="mob-item" onclick="mobGo('partidos')">⚽ Partidos</button>
+    <button class="mob-item" onclick="mobGo('bracket')">🔀 Bracket</button>
+    <button class="mob-item" onclick="mobGo('jugador')">👤 Por jugador</button>
+    <button class="mob-item" onclick="mobGo('registro')">📋 Registro</button>
+    <button class="mob-item" onclick="mobGo('planilla')">📝 Planillas</button>
+    <div class="mob-div"></div>
+    <button class="mob-item" onclick="mobGo('mipred')">✏️ Mi pronóstico</button>
+    <button class="mob-item" onclick="mobGo('mundial')">🌍 Mundial</button>
+    <button class="mob-item" onclick="mobGo('info')">🎁 Premios</button>
+    <button class="mob-item" onclick="mobGo('buscar')">🔍 Buscar</button>
+    <div class="mob-div"></div>
+    <button class="mob-item" onclick="mobGo('admin')">⚙️ Admin</button>
+  </div>
+</div>
 
 <div class="main">
   <div id="p-tabla"    class="panel"></div>
@@ -3007,10 +3059,10 @@ function rMiPredForm(el){
           <div style="display:flex;flex-direction:column;align-items:center;gap:5px">
             <div style="display:flex;gap:5px;align-items:center">
               <input type="number" min="0" max="99" id="mph-${mi}" value="${pr.h!==undefined?pr.h:""}"
-                placeholder="0" class="sc-inp" style="width:46px;height:44px;font-size:18px">
+                placeholder="0" class="sc-inp" style="width:46px;height:44px;font-size:18px" oninput="onScoreChange(${mi},${pi})">
               <span style="font-size:20px;font-weight:700;color:var(--border)">–</span>
               <input type="number" min="0" max="99" id="mpa-${mi}" value="${pr.a!==undefined?pr.a:""}"
-                placeholder="0" class="sc-inp" style="width:46px;height:44px;font-size:18px">
+                placeholder="0" class="sc-inp" style="width:46px;height:44px;font-size:18px" oninput="onScoreChange(${mi},${pi})">
             </div>
             <div style="font-size:9px;color:var(--faint);letter-spacing:.06em">MI PRONÓSTICO</div>
           </div>
@@ -3027,9 +3079,37 @@ function rMiPredForm(el){
           ? `<div style="background:var(--red-bg);border:1px solid var(--red-border);border-radius:var(--r-sm);padding:8px 12px;text-align:center;font-size:12px;color:var(--red-text);font-weight:600">
               ⏰ Pronósticos cerrados — partido a punto de iniciar
             </div>`
-          : `<button onclick="saveMyPred(${mi},${pi})" class="btn btn-gold" style="width:100%;justify-content:center">
-              <i class="ti ti-check"></i>${hasP?"Actualizar pronóstico":"Guardar pronóstico"}
-            </button>`
+          : `
+          <div id="ko-extra-${mi}" style="display:${['R32','R16','QF','SF','3P','FIN'].includes(m.g)&&pr.h!==undefined&&pr.a!==undefined&&pr.h===pr.a?'block':'none'};margin-top:8px;padding:8px 10px;
+            background:rgba(201,168,67,.07);border:1px solid rgba(201,168,67,.25);
+            border-radius:var(--r-sm)">
+            <div id="te-section-${mi}">
+              <div style="font-size:10px;font-weight:700;color:var(--gold);margin-bottom:5px">
+                ⚡ TIEMPO EXTRA <span style="font-weight:400;color:var(--muted)">(+5pts si aciertas)</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
+                <input type="number" min="0" max="20" id="eth-${mi}" value="${pr.eth!==undefined?pr.eth:''}" placeholder="0"
+                  class="sc-inp" style="width:46px;text-align:center" oninput="onEtChange(${mi},${pi})">
+                <span style="font-size:16px;color:var(--border)">–</span>
+                <input type="number" min="0" max="20" id="eta-${mi}" value="${pr.eta!==undefined?pr.eta:''}" placeholder="0"
+                  class="sc-inp" style="width:46px;text-align:center" oninput="onEtChange(${mi},${pi})">
+                <span style="font-size:10px;color:var(--muted)">marcador al final del TE</span>
+              </div>
+            </div>
+            <div id="pen-section-${mi}" style="display:${['R32','R16','QF','SF','3P','FIN'].includes(m.g)&&pr.eth!==undefined&&pr.eta!==undefined&&pr.eth===pr.eta?'block':'none'}">
+              <div style="font-size:10px;font-weight:700;color:var(--gold);margin-bottom:5px">
+                🥅 PENALES <span style="font-weight:400;color:var(--muted)">(+5pts si aciertas)</span>
+              </div>
+              <select id="pen-${mi}" class="inp" style="margin-bottom:0;font-size:12px">
+                <option value="">¿Quién gana en penales?</option>
+                <option value="${m.h}" ${pr.penW===m.h?"selected":""}>${fl(m.h)} ${m.h}</option>
+                <option value="${m.a}" ${pr.penW===m.a?"selected":""}>${fl(m.a)} ${m.a}</option>
+              </select>
+            </div>
+          </div>
+          <button onclick="saveMyPred(${mi},${pi})" class="btn btn-gold" style="width:100%;justify-content:center;margin-top:8px">
+            <i class="ti ti-check"></i>${hasP?"Actualizar pronóstico":"Guardar pronóstico"}
+          </button>`
         }
       </div>
     </div>`;
@@ -3160,7 +3240,20 @@ function saveMyPred(mi, pi){
   if(isMatchLocked(m)){
     toast("⏰ Pronósticos cerrados — faltan menos de 10 min para el partido","err"); return;
   }
-  S.pred[`${mi}_${pi}`] = {h:+h, a:+a};
+  const _isKOm2=['R32','R16','QF','SF','3P','FIN'].includes(GM[mi]?.g);
+  const _pred={h:+h,a:+a};
+  if(_isKOm2&&+h===+a){
+    const _eth=document.getElementById('eth-'+mi)?.value;
+    const _eta=document.getElementById('eta-'+mi)?.value;
+    if(_eth!==''&&_eth!==undefined&&_eta!==''&&_eta!==undefined){
+      _pred.eth=+_eth; _pred.eta=+_eta;
+      if(+_eth===+_eta){
+        const _penW=document.getElementById('pen-'+mi)?.value;
+        if(_penW)_pred.penW=_penW;
+      }
+    }
+  }
+  S.pred[`${mi}_${pi}`]=_pred;
   save();
   toast(`✓ Pronóstico guardado: ${m.h} ${+h} – ${+a} ${m.a}`);
   rMiPredForm(document.getElementById("p-mipred"));
@@ -3565,6 +3658,64 @@ function savePlayerPin(pi){
   S.playerPins[pi]=val;
   save();
   toast('✓ PIN de '+S.players[pi].name+' guardado');
+}
+
+
+function openMobMenu(){
+  document.getElementById('mob-ov').classList.add('open');
+  document.getElementById('mob-panel').classList.add('open');
+}
+function closeMobMenu(){
+  document.getElementById('mob-ov').classList.remove('open');
+  document.getElementById('mob-panel').classList.remove('open');
+}
+function mobGo(tab){
+  closeMobMenu();
+  go(tab);
+  document.querySelectorAll('.mob-item').forEach(b=>{
+    b.classList.toggle('on',(b.getAttribute('onclick')||'').includes("'"+tab+"'"));
+  });
+}
+
+
+function onScoreChange(mi, pi){
+  // Called when 90min score changes
+  const h=document.getElementById('mph-'+mi)?.value;
+  const a=document.getElementById('mpa-'+mi)?.value;
+  const isKO=['R32','R16','QF','SF','3P','FIN'].includes(GM[mi]?.g);
+  if(!isKO) return;
+  const extra=document.getElementById('ko-extra-'+mi);
+  if(!extra) return;
+  // Show TE section only if BOTH scores are filled AND equal (draw)
+  const hNum=parseInt(h), aNum=parseInt(a);
+  const isDraw=!isNaN(hNum)&&!isNaN(aNum)&&hNum===aNum;
+  extra.style.display=isDraw?'block':'none';
+  if(!isDraw){
+    // Clear ET and pen if not draw
+    const ethInp=document.getElementById('eth-'+mi);
+    const etaInp=document.getElementById('eta-'+mi);
+    const penInp=document.getElementById('pen-'+mi);
+    if(ethInp)ethInp.value='';
+    if(etaInp)etaInp.value='';
+    if(penInp)penInp.value='';
+    const penSec=document.getElementById('pen-section-'+mi);
+    if(penSec)penSec.style.display='none';
+  }
+}
+
+function onEtChange(mi, pi){
+  // Called when ET score changes — show pen only if ET is also a draw
+  const eth=document.getElementById('eth-'+mi)?.value;
+  const eta=document.getElementById('eta-'+mi)?.value;
+  const penSec=document.getElementById('pen-section-'+mi);
+  if(!penSec) return;
+  const hNum=parseInt(eth), aNum=parseInt(eta);
+  const isEtDraw=!isNaN(hNum)&&!isNaN(aNum)&&hNum===aNum;
+  penSec.style.display=isEtDraw?'block':'none';
+  if(!isEtDraw){
+    const penInp=document.getElementById('pen-'+mi);
+    if(penInp)penInp.value='';
+  }
 }
 
 // INIT
