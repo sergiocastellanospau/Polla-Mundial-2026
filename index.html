@@ -1332,28 +1332,33 @@ function buildMatchCard(m,mi){
   const MO2={Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
   function kms2(m){try{const pt=m.d.split(' ');const tt=m.t.split(':');
     return Date.UTC(2026,MO2[pt[0]],parseInt(pt[1]),parseInt(tt[0])+4,parseInt(tt[1]));}catch(e){return Infinity;}}
+  const _now=Date.now();
   const ds=new Date(kms2(m)).toDateString();
-  const isToday=ds===new Date().toDateString();
-  const isTomorrow=ds===new Date(Date.now()+86400000).toDateString();
-  const cardBg=isToday?'var(--blue-bg)':isTomorrow?'#ECFDF5':'var(--card)';
-  const cardBorder=isToday?'1.5px solid var(--blue-border)':isTomorrow?'1.5px solid #059669':'1px solid var(--border)';
+  const _isToday=ds===new Date().toDateString();
+  const _isTomorrow=ds===new Date(_now+86400000).toDateString();
+  const _isPast=kms2(m)<_now-2*60*60*1000&&!_isToday;
+  const cardBg=_isToday?'var(--blue-bg)':_isTomorrow?'#ECFDF5':'var(--card)';
+  const cardBorder=_isToday?'1.5px solid var(--blue-border)':_isTomorrow?'1.5px solid #059669':'1px solid var(--border)';
   const scoreDisplay=isAdmin
     ?('<div class="mc-scores">'
       +'<input class="sc-inp" type="number" min="0" max="99" placeholder="–" value="'+(r.h!==undefined?r.h:'')+'" data-mi="'+mi+'" data-side="h" oninput="onReal(this)">'
       +'<span class="sc-sep">:</span>'
       +'<input class="sc-inp" type="number" min="0" max="99" placeholder="–" value="'+(r.a!==undefined?r.a:'')+'" data-mi="'+mi+'" data-side="a" oninput="onReal(this)">'
-      +'</div><div class="mc-vs" style="font-size:9px">RESULTADO 90 MIN</div>')
+      +'</div><div class="mc-vs">'+(hasR?'RESULTADO':'REAL')+'</div>')
     :('<div style="display:flex;gap:6px;align-items:center">'
       +'<span style="font-family:var(--fd);font-size:30px;color:var(--navy)">'+(hasR?r.h:'–')+'</span>'
       +'<span style="font-size:16px;color:var(--border)">:</span>'
       +'<span style="font-family:var(--fd);font-size:30px;color:var(--navy)">'+(hasR?r.a:'–')+'</span>'
       +'</div><div class="mc-vs">'+(hasR?'RESULTADO':'POR JUGAR')+'</div>');
+  const isKOm=['R32','R16','QF','SF','3P','FIN'].includes(m.g);
   return `<div class="mc" style="background:${cardBg};border:${cardBorder}">
     <div class="mc-top">
       <span class="mc-num">${m.n}</span>
       <span class="mc-date">📅 ${m.d} · ${m.t} EDT</span>
-      <span class="mc-venue" style="margin-left:auto">📍 ${m.city}</span>
+      <span class="mc-venue" style="margin-left:auto;font-size:10px;color:var(--faint)">📍 ${m.city}</span>
       ${hasR?'<span class="mc-done">✓</span>':""}
+      ${_isToday?'<span style="background:var(--blue-text);color:#fff;font-size:9px;font-weight:700;padding:2px 6px;border-radius:8px;margin-left:4px">HOY</span>':""}
+      ${_isTomorrow?'<span style="background:#059669;color:#fff;font-size:9px;font-weight:700;padding:2px 6px;border-radius:8px;margin-left:4px">MAÑANA</span>':""}
     </div>
     <div class="mc-body">
       <div class="mc-team home"><div class="mc-tname">${m.h}</div><div class="mc-flag">${fl(m.h)}</div></div>
@@ -1361,19 +1366,16 @@ function buildMatchCard(m,mi){
       <div class="mc-team"><div class="mc-flag">${fl(m.a)}</div><div class="mc-tname">${m.a}</div></div>
     </div>
     <div class="mc-preds">
-      <div class="mc-preds-lbl">Pronós      <div class="mc-preds">
       <div class="mc-preds-lbl">Pronósticos</div>
       <div style="display:flex;flex-direction:column;gap:3px">${S.players.map((pl,pi)=>{
         const key=`${mi}_${pi}`,pr=S.pred[key]||{};
         const hasPr=pr.h!==undefined&&pr.a!==undefined;
-        const isKOm=['R32','R16','QF','SF','3P','FIN'].includes(m.g);
         const v=hasR&&hasPr?calcPts(r.h,r.a,pr.h,pr.a,false):null;
         const cls=v===null?"pt-n":v===0?"pt-0":v===3?"pt-3":v===5?"pt-5":"pt-7";
         const etTxt=isKOm&&pr.eth!==undefined&&pr.eta!==undefined?"⚡ "+pr.eth+"–"+pr.eta:"";
         const penTxt=isKOm&&pr.penW?"🥅 "+fl(pr.penW):"";
         const predTxt=hasPr?pr.h+"–"+pr.a:"–";
-        return '<div style="display:flex;align-items:center;gap:8px;padding:5px 8px;'
-          +'background:var(--off);border-radius:var(--r-sm);margin-bottom:2px">'
+        return '<div style="display:flex;align-items:center;gap:8px;padding:5px 8px;background:var(--off);border-radius:var(--r-sm)">'
           +'<div style="width:8px;height:8px;border-radius:50%;flex-shrink:0;background:'+AVC[pi%AVC.length]+'"></div>'
           +'<span style="font-size:12px;font-weight:600;color:var(--text);flex:1">'+pl.name+'</span>'
           +(isAdmin
@@ -1387,6 +1389,8 @@ function buildMatchCard(m,mi){
     </div>
   </div>`;
 }
+
+
 
 
 
