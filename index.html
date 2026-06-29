@@ -687,6 +687,39 @@ const GM=[
 {g:"L",n:"#46",d:"Jun 23",t:"19:00",h:"Panamá",a:"Croacia",v:"BMO Field",city:"Toronto"},
 {g:"L",n:"#67",d:"Jun 27",t:"17:00",h:"Panamá",a:"Inglaterra",v:"MetLife",city:"Nueva York"},
 {g:"L",n:"#68",d:"Jun 27",t:"17:00",h:"Croacia",a:"Ghana",v:"Lincoln",city:"Filadelfia"},
+,
+{g:"R32",n:"#73",d:"Jun 28",t:"15:00",h:"Sudáfrica",a:"Canadá",v:"Los Angeles Stadium",city:"Los Ángeles"},
+{g:"R32",n:"#74",d:"Jun 29",t:"16:30",h:"Alemania",a:"Paraguay",v:"Gillette Stadium",city:"Foxborough"},
+{g:"R32",n:"#75",d:"Jun 29",t:"21:00",h:"Países Bajos",a:"Marruecos",v:"Estadio BBVA",city:"Monterrey"},
+{g:"R32",n:"#76",d:"Jun 29",t:"13:00",h:"Brasil",a:"Japón",v:"NRG Stadium",city:"Houston"},
+{g:"R32",n:"#77",d:"Jun 30",t:"17:00",h:"Francia",a:"Suecia",v:"MetLife Stadium",city:"East Rutherford"},
+{g:"R32",n:"#78",d:"Jun 30",t:"13:00",h:"C. de Marfil",a:"Noruega",v:"AT&T Stadium",city:"Arlington"},
+{g:"R32",n:"#79",d:"Jun 30",t:"21:00",h:"México",a:"Ecuador",v:"Estadio Azteca",city:"Ciudad de México"},
+{g:"R32",n:"#80",d:"Jul 01",t:"20:00",h:"USA",a:"Bosnia y Herz.",v:"Levi Stadium",city:"Santa Clara"},
+{g:"R32",n:"#81",d:"Jul 01",t:"12:00",h:"Inglaterra",a:"Congo RD",v:"Mercedes-Benz Stadium",city:"Atlanta"},
+{g:"R32",n:"#82",d:"Jul 01",t:"16:00",h:"Bélgica",a:"Senegal",v:"Lumen Field",city:"Seattle"},
+{g:"R32",n:"#83",d:"Jul 02",t:"15:00",h:"España",a:"Austria",v:"SoFi Stadium",city:"Los Ángeles"},
+{g:"R32",n:"#84",d:"Jul 03",t:"18:00",h:"Argentina",a:"Cabo Verde",v:"Hard Rock Stadium",city:"Miami"},
+{g:"R32",n:"#85",d:"Jul 02",t:"23:00",h:"Suiza",a:"Argelia",v:"BC Place",city:"Vancouver"},
+{g:"R32",n:"#86",d:"Jul 02",t:"19:00",h:"Portugal",a:"Croacia",v:"BMO Field",city:"Toronto"},
+{g:"R32",n:"#87",d:"Jul 03",t:"21:30",h:"Colombia",a:"Ghana",v:"Arrowhead Stadium",city:"Kansas City"},
+{g:"R32",n:"#88",d:"Jul 03",t:"14:00",h:"Australia",a:"Egipto",v:"AT&T Stadium",city:"Arlington"},
+{g:"R16",n:"#89",d:"Jul 04",t:"17:00",h:"Gan. #74",a:"Gan. #77",v:"Lincoln Financial Field",city:"Philadelphia"},
+{g:"R16",n:"#90",d:"Jul 04",t:"13:00",h:"Gan. #73",a:"Gan. #75",v:"NRG Stadium",city:"Houston"},
+{g:"R16",n:"#91",d:"Jul 05",t:"16:00",h:"Gan. #76",a:"Gan. #78",v:"MetLife Stadium",city:"East Rutherford"},
+{g:"R16",n:"#92",d:"Jul 05",t:"20:00",h:"Gan. #79",a:"Gan. #80",v:"Estadio Azteca",city:"Ciudad de México"},
+{g:"R16",n:"#93",d:"Jul 06",t:"15:00",h:"Gan. #83",a:"Gan. #84",v:"AT&T Stadium",city:"Arlington"},
+{g:"R16",n:"#94",d:"Jul 06",t:"20:00",h:"Gan. #81",a:"Gan. #82",v:"Lumen Field",city:"Seattle"},
+{g:"R16",n:"#95",d:"Jul 07",t:"12:00",h:"Gan. #86",a:"Gan. #88",v:"Mercedes-Benz Stadium",city:"Atlanta"},
+{g:"R16",n:"#96",d:"Jul 07",t:"16:00",h:"Gan. #85",a:"Gan. #87",v:"BC Place",city:"Vancouver"},
+{g:"QF",n:"#97",d:"Jul 09",t:"16:00",h:"Gan. #89",a:"Gan. #90",v:"Gillette Stadium",city:"Foxborough"},
+{g:"QF",n:"#98",d:"Jul 10",t:"15:00",h:"Gan. #93",a:"Gan. #94",v:"SoFi Stadium",city:"Los Ángeles"},
+{g:"QF",n:"#99",d:"Jul 11",t:"17:00",h:"Gan. #91",a:"Gan. #92",v:"Hard Rock Stadium",city:"Miami"},
+{g:"QF",n:"#100",d:"Jul 11",t:"21:00",h:"Gan. #95",a:"Gan. #96",v:"Arrowhead Stadium",city:"Kansas City"},
+{g:"SF",n:"#101",d:"Jul 14",t:"15:00",h:"Gan. #97",a:"Gan. #98",v:"AT&T Stadium",city:"Arlington"},
+{g:"SF",n:"#102",d:"Jul 15",t:"15:00",h:"Gan. #99",a:"Gan. #100",v:"Mercedes-Benz Stadium",city:"Atlanta"},
+{g:"3P",n:"#103",d:"Jul 18",t:"17:00",h:"Perd. #101",a:"Perd. #102",v:"Hard Rock Stadium",city:"Miami"},
+{g:"FIN",n:"#104",d:"Jul 19",t:"15:00",h:"Gan. #101",a:"Gan. #102",v:"MetLife Stadium",city:"East Rutherford"}
 ];
 
 const KO=[
@@ -1264,7 +1297,7 @@ function rPartidos(){
     const hBorder=isToday?'var(--blue-border)':isTomorrow?'#059669':'var(--border)';
     const hColor=isToday?'var(--blue-text)':isTomorrow?'#065F46':'var(--text)';
     const colId='day-'+day.replace(' ','-');
-    h+=`<div style="margin-bottom:6px">
+    h+=`<div style="margin-bottom:6px" ${isToday?'id="today-anchor"':''}>
       <button onclick="toggleDay('${colId}')" style="width:100%;display:flex;align-items:center;gap:8px;padding:10px 14px;background:${hBg};border:1.5px solid ${hBorder};border-radius:var(--r-sm);cursor:pointer;font-family:var(--fb);text-align:left">
         <span id="${colId}-arrow" style="font-size:11px;color:var(--faint);display:inline-block;transform:${isPast?'rotate(-90deg)':'rotate(0deg)'}">▼</span>
         <span style="font-size:13px;font-weight:700;color:${hColor};flex:1">📅 ${labelCap}</span>
@@ -1277,6 +1310,11 @@ function rPartidos(){
     </div>`;
   });
   document.getElementById("p-partidos").innerHTML=h;
+  // Auto-scroll to today or nearest future day
+  setTimeout(()=>{
+    const todayBtn=document.getElementById("today-anchor");
+    if(todayBtn)todayBtn.scrollIntoView({behavior:"smooth",block:"start"});
+  },100);
 }
 
 function toggleDay(id){
