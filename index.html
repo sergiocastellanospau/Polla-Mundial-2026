@@ -1004,19 +1004,44 @@ try{
 }catch(e){}
 
 // SCORING — Grupos: 3=resultado,5=exacto | KO: 3/5 normal + 7=empate+ganadorPen / 10=exacto+ganadorPen
-function calcPts(rh,ra,ph,pa,isKO,rPenW,pPenW){
+function calcPts(rh,ra,ph,pa,isKO,opts){
   if([rh,ra,ph,pa].some(x=>x===undefined||x===null||x===""))return null;
   rh=+rh;ra=+ra;ph=+ph;pa=+pa;
   const exact=(rh===ph&&ra===pa);
   const rr=rh>ra?"H":rh<ra?"A":"D", pr=ph>pa?"H":ph<pa?"A":"D";
   const rightRes=(rr===pr);
-  if(!isKO){return exact?5:rightRes?3:0;}
-  const draw=(rh===ra);
-  if(!draw){return exact?5:rightRes?3:0;}
-  // Draw in KO -> penales
-  if(!rPenW||!pPenW)return exact?5:3;
-  const rightPen=(rPenW===pPenW);
-  return exact&&rightPen?10:rightPen?7:3;
+  let pts=exact?5:rightRes?3:0;
+  if(!isKO||!opts||pts===0)return pts;
+  const o=opts;
+  if(o.rEth!==undefined&&o.rEta!==undefined&&o.pEth!==undefined&&o.pEta!==undefined){
+    if((+o.rEth)===(+o.pEth)&&(+o.rEta)===(+o.pEta)){
+      pts+=5;
+      if(o.rPenW&&o.pPenW&&o.rPenW===o.pPenW)pts+=5;
+    }
+  }
+  return pts;
+}
+// Helper: is this GM match a knockout-stage match
+function isKOMatch(m){
+  return m && ['R32','R16','QF','SF','3P','FIN'].indexOf(m.g)>=0;
+}
+// Helper: build calcPts opts from real result r and prediction pr
+function koOpts(r,pr){
+  return {rEth:r&&r.eth,rEta:r&&r.eta,pEth:pr&&pr.eth,pEta:pr&&pr.eta,rPenW:r&&r.winner,pPenW:pr&&pr.penW};
+}
+// Helper: determine the actual winner of a GM match (90min, then ET, then penales)
+function gmWinner(mi){
+  var m=GM[mi]; if(!m) return null;
+  var r=S.real[String(mi)];
+  if(!r||r.h===undefined||r.a===undefined) return null;
+  if(+r.h>+r.a) return m.h;
+  if(+r.a>+r.h) return m.a;
+  if(r.eth!==undefined&&r.eta!==undefined){
+    if(+r.eth>+r.eta) return m.h;
+    if(+r.eta>+r.eth) return m.a;
+  }
+  if(r.winner) return r.winner;
+  return null; // true draw (group stage) or still pending
 }
 
 function matchLocalTime(d, t){
@@ -1046,21 +1071,12 @@ function fmtMoney(n){
 function totals(){
   return S.players.map((_,pi)=>{
     let t=0;
-    // Group stage
     GM.forEach((_m,mi)=>{
       const r=S.real[String(mi)],p=S.pred[`${mi}_${pi}`];
       if(!r||!p)return;
-      const v=calcPts(r.h,r.a,p.h,p.a,false);
+      const v=calcPts(r.h,r.a,p.h,p.a,isKOMatch(GM[mi]),koOpts(r,p));
       if(v!==null)t+=v;
     });
-    // KO stage
-    KO.forEach(({ms})=>ms.forEach(m=>{
-      const r=S.ko[m.id],kp=S.koPred?.[m.id]?.[pi];
-      if(!r||!r.hScore===undefined||r.aScore===undefined)return;
-      if(!kp||kp.h===undefined||kp.a===undefined)return;
-      const v=calcPts(r.hScore,r.aScore,kp.h,kp.a,true,r.winner,kp.penW);
-      if(v!==null)t+=v;
-    }));
     return t;
   });
 }
@@ -1437,7 +1453,7 @@ function buildMatchCard(m,mi){
   S.players.forEach(function(pl,pi){
     var key=mi+'_'+pi, pr=S.pred[key]||{};
     var hasPr=pr.h!==undefined&&pr.a!==undefined;
-    var v=hasR&&hasPr?calcPts(r.h,r.a,pr.h,pr.a,false):null;
+    var v=hasR&&hasPr?calcPts(r.h,r.a,pr.h,pr.a,isKOMatch(m||GM[mi]),koOpts(r,pr)):null;
     var cls=v===null?'pt-n':v===0?'pt-0':v===3?'pt-3':v===5?'pt-5':'pt-7';
     var etTxt=isKOm&&pr.eth!==undefined&&pr.eta!==undefined?'ET:'+pr.eth+'-'+pr.eta:'';
     var penTxt=isKOm&&pr.penW?fl(pr.penW):'';
@@ -1463,10 +1479,17 @@ function buildMatchCard(m,mi){
   if(isToday) html+='<span style="background:var(--blue-text);color:#fff;font-size:9px;font-weight:700;padding:2px 6px;border-radius:8px;margin-left:4px">HOY</span>';
   if(isTomorrow) html+='<span style="background:#059669;color:#fff;font-size:9px;font-weight:700;padding:2px 6px;border-radius:8px;margin-left:4px">MANANA</span>';
   html+='</div>';
+  var matchWinner=hasR?gmWinner(mi):null;
+  var hWin=matchWinner&&matchWinner===m.h;
+  var aWin=matchWinner&&matchWinner===m.a;
+  var starH=hWin?' ⭐':'';
+  var starA=aWin?' ⭐':'';
+  var hStyle=hWin?'font-weight:800;color:var(--navy)':'';
+  var aStyle=aWin?'font-weight:800;color:var(--navy)':'';
   html+='<div class="mc-body">';
-  html+='<div class="mc-team home"><div class="mc-tname">'+m.h+'</div><div class="mc-flag">'+fl(m.h)+'</div></div>';
+  html+='<div class="mc-team home"><div class="mc-tname" style="'+hStyle+'">'+m.h+starH+'</div><div class="mc-flag">'+fl(m.h)+'</div></div>';
   html+='<div class="mc-ctr">'+scoreDisplay+'</div>';
-  html+='<div class="mc-team"><div class="mc-flag">'+fl(m.a)+'</div><div class="mc-tname">'+m.a+'</div></div>';
+  html+='<div class="mc-team"><div class="mc-flag">'+fl(m.a)+'</div><div class="mc-tname" style="'+aStyle+'">'+m.a+starA+'</div></div>';
   html+='</div>';
   html+='<div class="mc-preds">';
   html+='<div class="mc-preds-lbl">Pronosticos</div>';
@@ -1561,12 +1584,47 @@ function bkTeam(name,score,win){
 }
 function bkMHtml(m){
   const r=S.ko[m.id]||{};
-  const hW=r.winner&&r.winner===r.h,aW=r.winner&&r.winner===r.a;
+  const hName=bkResolveTeam(m.id,'h');
+  const aName=bkResolveTeam(m.id,'a');
+  const hW=r.winner&&r.winner===hName,aW=r.winner&&r.winner===aName;
   return `<div class="bk-m" onclick="${isAdmin?"openBkM('"+m.id+"')":"void(0)"}">
     <div class="bk-mi">${m.n} · ${m.d}</div>
-    ${bkTeam(r.h,r.hScore,hW)}${bkTeam(r.a,r.aScore,aW)}
+    ${bkTeam(hName,r.hScore,hW)}${bkTeam(aName,r.aScore,aW)}
   </div>`;
 }
+
+// Bracket progression tree: which 2 matches feed into each KO match
+const BK_TREE={
+  r16_1:['r32_2','r32_5'],  r16_2:['r32_1','r32_3'],
+  r16_3:['r32_4','r32_6'],  r16_4:['r32_7','r32_8'],
+  r16_5:['r32_11','r32_12'],r16_6:['r32_9','r32_10'],
+  r16_7:['r32_14','r32_16'],r16_8:['r32_13','r32_15'],
+  qf_1:['r16_1','r16_2'],   qf_2:['r16_5','r16_6'],
+  qf_3:['r16_3','r16_4'],   qf_4:['r16_7','r16_8'],
+  sf_1:['qf_1','qf_2'],     sf_2:['qf_3','qf_4'],
+  final:['sf_1','sf_2'],    tp:['sf_1','sf_2']  // tp uses LOSERS of sf_1/sf_2
+};
+
+// Resolve the team name for a given bracket match + side (h/a)
+// Returns the real team name if known, or null if still TBD
+function bkResolveTeam(matchId, side){
+  const ko=S.ko[matchId]||{};
+  // If this match already has a fixed team name stored (R32, or manually set), use it
+  if(ko[side]) return ko[side];
+  // Otherwise resolve from the feeder match in BK_TREE
+  const feeders=BK_TREE[matchId];
+  if(!feeders) return null;
+  const feederId = side==='h' ? feeders[0] : feeders[1];
+  if(matchId==='tp'){
+    // 3rd place uses LOSER of each semifinal
+    const fko=S.ko[feederId]||{};
+    if(!fko.winner||!fko.h||!fko.a) return null;
+    return fko.winner===fko.h ? fko.a : fko.h;
+  }
+  const fko=S.ko[feederId]||{};
+  return fko.winner||null;
+}
+
 function bkCol(ms,lbl){return`<div class="bk-col"><div class="bk-col-hdr">${lbl}</div><div class="bk-col-ms">${ms.map(m=>bkMHtml(m)).join("")}</div></div>`;}
 
 function rBracket(){
@@ -1677,7 +1735,7 @@ function saveBkM(){
   S.ko[bkMId]={h:hn,a:an,hScore,aScore,winner};
   save();closeModal();rBracket();toast("Resultado guardado ✓");
 }
-function clearBkM(){delete S.ko[bkMId];save();closeModal();rBracket();}
+function clearBkM(){if(!isAdmin)return;delete S.ko[bkMId];save();closeModal();rBracket();}
 
 // ══════════════════════════════════════════════
 // POR JUGADOR
@@ -1691,7 +1749,7 @@ function rJugador(){
   let rows="";
   GM.forEach((m,mi)=>{
     const r=S.real[String(mi)],pr=S.pred[`${mi}_${activeP}`];
-    const v=r&&pr?calcPts(r.h,r.a,pr.h,pr.a,false):null;
+    const v=r&&pr?calcPts(r.h,r.a,pr.h,pr.a,isKOMatch(m||GM[mi]),koOpts(r,pr)):null;
     const cls=v===null?"pt-n":v===0?"pt-0":v===3?"pt-3":v===5?"pt-5":"pt-7";
     rows+=`<tr>
       <td style="font-size:10px;color:var(--muted)">${m.n}</td>
@@ -1834,6 +1892,7 @@ function rRegistro(){
   </div>`;
 }
 function addPlayer(){
+  if(!isAdmin)return;
   const n=document.getElementById("new-name")?.value.trim();
   const paid=document.getElementById("new-paid")?.checked||false;
   if(!n){toast("Ingresa un nombre","err");return;}
@@ -1857,6 +1916,7 @@ function sendJoinRequest(){
   if(document.getElementById("req-name"))document.getElementById("req-name").value="";
 }
 function approveRequest(ri){
+  if(!isAdmin)return;
   if(!S.pendingRequests)return;
   const name=S.pendingRequests[ri];
   S.players.push({name,paid:false});
@@ -1864,11 +1924,13 @@ function approveRequest(ri){
   save();rRegistro();toast(name+" inscrito ✓");
 }
 function rejectRequest(ri){
+  if(!isAdmin)return;
   if(!S.pendingRequests)return;
   S.pendingRequests.splice(ri,1);
   save();rRegistro();toast("Solicitud rechazada");
 }
 function delPlayer(i){
+  if(!isAdmin)return;
   if(!confirm(`¿Eliminar a ${S.players[i].name}? Sus pronósticos se borrarán.`))return;
   S.players.splice(i,1);
   const np={};Object.keys(S.pred).forEach(k=>{
@@ -1877,9 +1939,10 @@ function delPlayer(i){
   });
   S.pred=np;save();rRegistro();toast("Jugador eliminado");
 }
-function togglePaid(i){S.players[i].paid=!S.players[i].paid;save();rRegistro();}
+function togglePaid(i){if(!isAdmin)return;S.players[i].paid=!S.players[i].paid;save();rRegistro();}
 let _epPaid=null;
 function editPlayer(i){
+  if(!isAdmin)return;
   const p=S.players[i];_epPaid=p.paid;
   document.getElementById("modal-root").innerHTML=`
   <div class="overlay" onclick="if(event.target===this)closeModal()">
@@ -1943,7 +2006,7 @@ function renderPlanillaForm(){
     const key = `${mi}_${pi}`;
     const pr = S.pred[key]||{};
     const hasP = pr.h!==undefined && pr.a!==undefined;
-    const v = hasResult&&hasP ? calcPts(r.h,r.a,pr.h,pr.a,false) : null;
+    const v = hasResult&&hasP ? calcPts(r.h,r.a,pr.h,pr.a,isKOMatch(m||GM[mi]),koOpts(r,pr)) : null;
     const cls = v===null?"pt-n":v===0?"pt-0":v===3?"pt-3":v===5?"pt-5":"pt-7";
     return `<div class="pchip" id="prow-${pi}" style="flex-direction:column;align-items:stretch;gap:8px;padding:11px 13px">
       <div style="display:flex;align-items:center;gap:9px">
@@ -2402,13 +2465,35 @@ function rAdmin(){
       <button class="btn btn-red btn-sm" onclick="clearResults()">Borrar todos los resultados</button>
       <button class="btn btn-red btn-sm" onclick="clearAll()">Resetear todo</button>
     </div>
+  </div>
+  <div class="adm-section">
+    <div class="adm-title"><i class="ti ti-key" style="font-size:18px"></i>PINs de jugadores</div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:12px">PIN inicial de todos: <strong>1111</strong> &middot; cambialo aqui para cada jugador.</div>
+    <div id="pins-panel"></div>
   </div>`;
+  setTimeout(function(){
+    var el=document.getElementById('pins-panel');
+    if(!el)return;
+    var h2='';
+    S.players.forEach(function(pl,pi){
+      var pin=S.playerPins&&S.playerPins[pi]?S.playerPins[pi]:'1111';
+      h2+='<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)">'
+        +'<div style="flex:1;font-size:13px;font-weight:700">'+pl.name+'</div>'
+        +'<input type="password" value="'+pin+'" id="pin-'+pi+'" maxlength="10" inputmode="numeric"'
+        +' style="width:90px;padding:6px;border-radius:var(--r-sm);border:1px solid var(--border);background:var(--off);color:var(--text);font-size:14px;text-align:center;font-family:var(--fb)">'
+        +'<button onclick="savePlayerPin('+pi+')" class="btn btn-navy btn-sm"><i class="ti ti-check"></i>Guardar</button>'
+        +'<button onclick="resetPlayerPin('+pi+')" class="btn btn-ghost btn-sm" title="Restablecer a 1111"><i class="ti ti-refresh"></i></button>'
+        +'</div>';
+    });
+    el.innerHTML=h2;
+  },0);
 }
-function saveDl(){S.deadline=document.getElementById("adm-dl")?.value;save();toast("Fecha guardada ✓");}
-function saveCuota(){S.cuota=+document.getElementById("adm-cuota")?.value||100;save();toast("Cuota guardada ✓");}
-function savePin(){const v=document.getElementById("adm-pin")?.value.trim();if(!v||v.length<3){toast("Mínimo 3 caracteres","err");return;}S.adminPin=v;save();toast("Contraseña actualizada ✓");}
-function saveAdminName(){const v=document.getElementById("adm-name")?.value.trim();if(!v){toast("Ingresa un nombre","err");return;}S.adminName=v;save();toast("Nombre actualizado ✓");}
+function saveDl(){if(!isAdmin)return;S.deadline=document.getElementById("adm-dl")?.value;save();toast("Fecha guardada ✓");}
+function saveCuota(){if(!isAdmin)return;S.cuota=+document.getElementById("adm-cuota")?.value||100;save();toast("Cuota guardada ✓");}
+function savePin(){if(!isAdmin)return;const v=document.getElementById("adm-pin")?.value.trim();if(!v||v.length<3){toast("Mínimo 3 caracteres","err");return;}S.adminPin=v;save();toast("Contraseña actualizada ✓");}
+function saveAdminName(){if(!isAdmin)return;const v=document.getElementById("adm-name")?.value.trim();if(!v){toast("Ingresa un nombre","err");return;}S.adminName=v;save();toast("Nombre actualizado ✓");}
 function setCurrency(code,symbol,locale){
+  if(!isAdmin)return;
   S.currency={code,symbol,locale};save();
   // Refresh currency buttons
   document.querySelectorAll("#currency-btns .btn").forEach(b=>{
@@ -2418,13 +2503,14 @@ function setCurrency(code,symbol,locale){
   rAdmin();rInfo();toast("Moneda: "+code+" "+symbol);
 }
 function setCustomCurrency(){
+  if(!isAdmin)return;
   const sym=document.getElementById("custom-sym")?.value.trim();
   if(!sym){toast("Ingresa un símbolo","err");return;}
   S.currency={code:"CUSTOM",symbol:sym,locale:"en-US"};
   save();rAdmin();rInfo();toast("Moneda personalizada: "+sym);
 }
 function exportAll(){const b=new Blob([JSON.stringify(S,null,2)],{type:"application/json"});const a=document.createElement("a");a.href=URL.createObjectURL(b);a.download="polla2026_backup_"+new Date().toISOString().split("T")[0]+".json";a.click();}
-function importAll(inp){const f=inp.files[0];if(!f)return;const r=new FileReader();r.onload=e=>{try{Object.assign(S,JSON.parse(e.target.result));save();rAdmin();toast("Datos importados ✓");}catch(err){toast("Error al importar","err");}};r.readAsText(f);}
+function importAll(inp){if(!isAdmin)return;const f=inp.files[0];if(!f)return;const r=new FileReader();r.onload=e=>{try{Object.assign(S,JSON.parse(e.target.result));save();rAdmin();toast("Datos importados ✓");}catch(err){toast("Error al importar","err");}};r.readAsText(f);}
 function showNewPollaWizard(){
   document.getElementById("modal-root").innerHTML=`
   <div class="overlay" onclick="if(event.target===this)closeModal()">
@@ -2482,6 +2568,7 @@ function applyNewPolla(){
   go("registro");
 }
 function hardReset(){
+  if(!isAdmin)return;
   const cur=S.currency,pin=S.adminPin,an=S.adminName,dl=S.deadline,cu=S.cuota;
   const officialPlayers=[{"name": "Alvaro Arias", "paid": true}, {"name": "Andres Perilla", "paid": true}, {"name": "Cesar Andres Tara", "paid": false}, {"name": "Daniel Trejo", "paid": false}, {"name": "Eduardo Peñuela", "paid": false}, {"name": "Edwin Rodríguez", "paid": false}, {"name": "Javier Rodriguez", "paid": false}, {"name": "Jhonatan Agudelo", "paid": true}, {"name": "Jhony Moreno", "paid": false}, {"name": "Junior Hurtado", "paid": true}, {"name": "Nacho Carrera", "paid": true}, {"name": "Samuel Peñuela", "paid": true}, {"name": "Samuel Rodriguez", "paid": false}, {"name": "Sergio Castellanos", "paid": true}];
   const officialPreds={"0_0": {"h": 3, "a": 0}, "0_1": {"h": 2, "a": 0}, "0_2": {"h": 3, "a": 2}, "0_3": {"h": 2, "a": 0}, "0_4": {"h": 2, "a": 0}, "0_5": {"h": 3, "a": 1}, "0_6": {"h": 2, "a": 0}, "0_8": {"h": 2, "a": 1}, "0_9": {"h": 2, "a": 0}, "0_10": {"h": 3, "a": 1}, "0_11": {"h": 2, "a": 0}, "0_12": {"h": 0, "a": 2}, "0_13": {"h": 3, "a": 1}, "1_0": {"h": 1, "a": 2}, "1_1": {"h": 1, "a": 1}, "1_2": {"h": 0, "a": 1}, "1_3": {"h": 2, "a": 1}, "1_4": {"h": 1, "a": 2}, "1_5": {"h": 1, "a": 1}, "1_6": {"h": 2, "a": 0}, "1_7": {"h": 1, "a": 1}, "1_8": {"h": 1, "a": 1}, "1_9": {"h": 1, "a": 1}, "1_10": {"h": 3, "a": 1}, "1_11": {"h": 2, "a": 0}, "1_12": {"h": 0, "a": 2}, "1_13": {"h": 2, "a": 1}};
@@ -2495,8 +2582,8 @@ function hardReset(){
   save();rInfo();
   toast("✓ "+officialPlayers.length+" jugadores y "+Object.keys(officialPreds).length+" pronósticos cargados");
 }
-function clearResults(){if(!confirm("¿Borrar TODOS los resultados y pronósticos?"))return;S.real={};S.pred={};S.ko={};S.koPred={};S.pendingRequests=[];save();toast("Borrado ✓");}
-function clearAll(){if(!confirm("¿Resetear TODO? Se perderán todos los datos."))return;const cur=S.currency,an=S.adminName;S={players:[...DEFAULT_PLAYERS.map(p=>({...p}))],real:{},pred:{},ko:{},koPred:{},deadline:"2026-06-10",cuota:100,adminPin:S.adminPin,adminName:an||"Sergio Castellanos",currency:cur||{code:"USD",symbol:"$",locale:"en-US"},pendingRequests:[]};save();toast("App reseteada");go("info");}
+function clearResults(){if(!isAdmin)return;if(!confirm("¿Borrar TODOS los resultados y pronósticos?"))return;S.real={};S.pred={};S.ko={};S.koPred={};S.pendingRequests=[];save();toast("Borrado ✓");}
+function clearAll(){if(!isAdmin)return;if(!confirm("¿Resetear TODO? Se perderán todos los datos."))return;const cur=S.currency,an=S.adminName;S={players:[...DEFAULT_PLAYERS.map(p=>({...p}))],real:{},pred:{},ko:{},koPred:{},deadline:"2026-06-10",cuota:100,adminPin:S.adminPin,adminName:an||"Sergio Castellanos",currency:cur||{code:"USD",symbol:"$",locale:"en-US"},pendingRequests:[]};save();toast("App reseteada");go("info");}
 
 // ══════════════════════════════════════════════
 // INPUT HANDLERS
@@ -2523,7 +2610,7 @@ function onPred(inp){
   save();
   const r=S.real[String(mi)],pr=S.pred[key];
   if(r&&r.h!==undefined&&r.a!==undefined&&pr&&pr.h!==undefined&&pr.a!==undefined){
-    const v=calcPts(r.h,r.a,pr.h,pr.a,false);
+    const v=calcPts(r.h,r.a,pr.h,pr.a,isKOMatch(m||GM[mi]),koOpts(r,pr));
     const cls=v===0?"pt-0":v===3?"pt-3":v===5?"pt-5":"pt-7";
     const badge=inp.closest(".pi-inps")?.querySelector(".ptag");
     if(badge){badge.className="ptag "+cls;badge.textContent=v+"p";}
@@ -2602,7 +2689,7 @@ function pdfJugador(pi){
   const played=Object.keys(S.real).length;
   const rows=GM.map((m,mi)=>{
     const r=S.real[String(mi)],pr=S.pred[`${mi}_${pi}`];
-    const v=r&&pr?calcPts(r.h,r.a,pr.h,pr.a,false):null;
+    const v=r&&pr?calcPts(r.h,r.a,pr.h,pr.a,isKOMatch(m||GM[mi]),koOpts(r,pr)):null;
     const pstyle=v===null?"background:#F9F8F5;color:#9CA3AF":v===0?"background:#FFF1F2;color:#BE123C":v===3?"background:#EFF6FF;color:#1D4ED8":v===5?"background:#F0FDF4;color:#15803D":"background:#FFFBEB;color:#92400E";
     return`<tr><td style="font-size:10px;color:#888">${m.n}</td>
       <td>${fl(m.h)} ${m.h} <span style="color:#9CA3AF">vs</span> ${fl(m.a)} ${m.a}<br><span style="font-size:10px;color:#9CA3AF">${m.d} · ${m.city}</span></td>
@@ -2664,8 +2751,8 @@ function pdfPlanilla(){
     const lHas = lp && lpr.h !== undefined && lpr.a !== undefined;
     const rHas = rp && rpr.h !== undefined && rpr.a !== undefined;
     // Points if result known
-    const lv = hasResult && lHas ? calcPts(r.h,r.a,lpr.h,lpr.a,false) : null;
-    const rv = hasResult && rHas ? calcPts(r.h,r.a,rpr.h,rpr.a,false) : null;
+    const lv = hasResult && lHas ? calcPts(r.h,r.a,lpr.h,lpr.a,isKOMatch(m||GM[mi]),koOpts(r,lpr)) : null;
+    const rv = hasResult && rHas ? calcPts(r.h,r.a,rpr.h,rpr.a,isKOMatch(m||GM[mi]),koOpts(r,rpr)) : null;
 
     // Left cell prediction display
     const lPred = lp ? (lHas
@@ -2909,7 +2996,7 @@ function rBuscarDetalle(pi, el){
     const pr = S.pred[`${mi}_${pi}`];
     const hasR = r && r.h!==undefined && r.a!==undefined;
     const hasPr = pr && pr.h!==undefined && pr.a!==undefined;
-    const v = hasR && hasPr ? calcPts(r.h,r.a,pr.h,pr.a,false) : null;
+    const v = hasR && hasPr ? calcPts(r.h,r.a,pr.h,pr.a,isKOMatch(m||GM[mi]),koOpts(r,pr)) : null;
     if(v===5)exactos++;
     else if(v===3)correctos++;
     else if(v===0)fallos++;
@@ -3219,7 +3306,7 @@ function rMiPredForm(el){
     const key = `${mi}_${pi}`;
     const pr  = S.pred[key]||{};
     const r   = S.real[String(mi)];
-    const v   = r&&pr.h!==undefined?calcPts(r.h,r.a,pr.h,pr.a,false):null;
+    const v   = r&&pr.h!==undefined?calcPts(r.h,r.a,pr.h,pr.a,isKOMatch(m||GM[mi]),koOpts(r,pr)):null;
     const cls = v===null?"pt-n":v===0?"pt-0":v===3?"pt-3":v===5?"pt-5":"pt-7";
     return `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)">
       <div style="font-size:10px;color:var(--muted);min-width:28px">${m.n}</div>
@@ -3527,7 +3614,7 @@ function rMundial(){
             const nm=pl.name.split(" ")[0]+" "+(pl.name.split(" ")[1]?pl.name.split(" ")[1][0]+".":"");
             const pr=S.pred[`${mi}_${pi}`];
             if(!pr||pr.h===undefined) return `<span style="font-size:9px;color:var(--faint)">${nm} –</span>`;
-            const v=calcPts(r.h,r.a,pr.h,pr.a,false);
+            const v=calcPts(r.h,r.a,pr.h,pr.a,isKOMatch(m||GM[mi]),koOpts(r,pr));
             const bg=v===5?"var(--green-bg)":v===3?"var(--blue-bg)":v===0?"var(--red-bg)":"var(--off)";
             const col=v===5?"var(--green-text)":v===3?"var(--blue-text)":v===0?"var(--red-text)":"var(--faint)";
             const brd=v===5?"var(--green-border)":v===3?"var(--blue-border)":v===0?"var(--red-border)":"var(--border)";
@@ -3753,7 +3840,19 @@ function _savePin(pi){
 
 function _skipPin(){closeModal();_enterMiPred();}
 
+
+function resetPlayerPin(pi){
+  if(!isAdmin)return;
+  if(!S.playerPins)S.playerPins={};
+  S.playerPins[pi]='1111';
+  save();
+  var inp=document.getElementById('pin-'+pi);
+  if(inp)inp.value='1111';
+  toast('PIN de '+S.players[pi].name+' restablecido a 1111');
+}
+
 function savePlayerPin(pi){
+  if(!isAdmin)return;
   const val=(document.getElementById('pin-'+pi)?.value||'').trim();
   if(!val){toast('Ingresa un PIN','err');return;}
   if(!S.playerPins)S.playerPins={};
@@ -3781,137 +3880,59 @@ function mobGo(tab){
 
 
 function updateBracket(){
-  // Map match number -> GM index
+  if(!isAdmin)return;
   var numToIdx={};
   GM.forEach(function(m,mi){ numToIdx[m.n]=mi; });
 
-  // Determine winner of a KO match using real result (+ ET/penales if needed)
-  function getWinner(matchNum){
+  function getWinner(matchNum, teamH, teamA){
     var mi=numToIdx[matchNum];
     if(mi===undefined)return null;
-    var m=GM[mi];
     var r=S.real[String(mi)];
     if(!r||r.h===undefined||r.a===undefined)return null;
-    if(+r.h>+r.a)return m.h;
-    if(+r.a>+r.h)return m.a;
-    // Draw at 90min - check ET
+    if(+r.h>+r.a)return teamH;
+    if(+r.a>+r.h)return teamA;
     if(r.eth!==undefined&&r.eta!==undefined){
-      if(+r.eth>+r.eta)return m.h;
-      if(+r.eta>+r.eth)return m.a;
+      if(+r.eth>+r.eta)return teamH;
+      if(+r.eta>+r.eth)return teamA;
     }
-    // Still draw - check penales
     if(r.winner)return r.winner;
     return null;
   }
 
-  // Update S.ko for each round, propagating winners forward
   var updated=0;
   KO.forEach(function(round){
     round.ms.forEach(function(match){
       if(!S.ko[match.id])S.ko[match.id]={};
-      var w=getWinner(match.n);
+      var teamH=bkResolveTeam(match.id,'h');
+      var teamA=bkResolveTeam(match.id,'a');
+      var mi=numToIdx[match.n];
+      if(mi!==undefined && teamH && teamA){
+        // Update GM team names so prediction forms show real names
+        if(GM[mi].h!==teamH){GM[mi].h=teamH;}
+        if(GM[mi].a!==teamA){GM[mi].a=teamA;}
+      }
+      var r=S.real[String(mi)];
+      if(r&&r.h!==undefined){
+        S.ko[match.id].hScore=r.h;
+        S.ko[match.id].aScore=r.a;
+      }
+      var w=getWinner(match.n, teamH, teamA);
       if(w && S.ko[match.id].winner!==w){
         S.ko[match.id].winner=w;
         updated++;
-      }
-      // Also store h/a scores for display
-      var mi=numToIdx[match.n];
-      if(mi!==undefined){
-        var r=S.real[String(mi)];
-        if(r&&r.h!==undefined){
-          S.ko[match.id].h=GM[mi].h;
-          S.ko[match.id].a=GM[mi].a;
-          S.ko[match.id].hScore=r.h;
-          S.ko[match.id].aScore=r.a;
-        }
+      } else if(!w && S.ko[match.id].winner){
+        delete S.ko[match.id].winner;
       }
     });
   });
-
-  // Propagate winners into next round team names (Gan. #XX placeholders)
-  // R32 winners -> R16 teams
-  var r32=KO.filter(function(r){return r.r==='R32';})[0];
-  var r16=KO.filter(function(r){return r.r==='R16';})[0];
-  if(r32&&r16){
-    r32.ms.forEach(function(m32){
-      var w=S.ko[m32.id]&&S.ko[m32.id].winner;
-      if(!w)return;
-      var num=m32.n; // e.g. "#73"
-      var ganTxt='Gan. '+num;
-      // Find R16 match referencing this winner, update GM team name
-      r16.ms.forEach(function(m16){
-        var mi16=numToIdx[m16.n];
-        if(mi16===undefined)return;
-        if(GM[mi16].h===ganTxt)GM[mi16].h=w;
-        if(GM[mi16].a===ganTxt)GM[mi16].a=w;
-      });
-    });
-  }
-  // R16 -> QF
-  var qf=KO.filter(function(r){return r.r==='QF';})[0];
-  if(r16&&qf){
-    r16.ms.forEach(function(m16){
-      var w=S.ko[m16.id]&&S.ko[m16.id].winner;
-      if(!w)return;
-      var ganTxt='Gan. '+m16.n;
-      qf.ms.forEach(function(mqf){
-        var miqf=numToIdx[mqf.n];
-        if(miqf===undefined)return;
-        if(GM[miqf].h===ganTxt)GM[miqf].h=w;
-        if(GM[miqf].a===ganTxt)GM[miqf].a=w;
-      });
-    });
-  }
-  // QF -> SF
-  var sf=KO.filter(function(r){return r.r==='SF';})[0];
-  if(qf&&sf){
-    qf.ms.forEach(function(mqf){
-      var w=S.ko[mqf.id]&&S.ko[mqf.id].winner;
-      if(!w)return;
-      var ganTxt='Gan. '+mqf.n;
-      sf.ms.forEach(function(msf){
-        var misf=numToIdx[msf.n];
-        if(misf===undefined)return;
-        if(GM[misf].h===ganTxt)GM[misf].h=w;
-        if(GM[misf].a===ganTxt)GM[misf].a=w;
-      });
-    });
-  }
-  // SF -> Final + 3rd place
-  var fin=KO.filter(function(r){return r.r==='FIN';})[0];
-  var tp=KO.filter(function(r){return r.r==='3P';})[0];
-  if(sf){
-    sf.ms.forEach(function(msf){
-      var w=S.ko[msf.id]&&S.ko[msf.id].winner;
-      var mi_sf=numToIdx[msf.n];
-      var loser=null;
-      if(w&&mi_sf!==undefined){
-        loser = (GM[mi_sf].h===w) ? GM[mi_sf].a : GM[mi_sf].h;
-      }
-      var ganTxt='Gan. '+msf.n;
-      var perdTxt='Perd. '+msf.n;
-      if(fin){
-        var mifin=numToIdx[fin.ms[0].n];
-        if(mifin!==undefined&&w){
-          if(GM[mifin].h===ganTxt)GM[mifin].h=w;
-          if(GM[mifin].a===ganTxt)GM[mifin].a=w;
-        }
-      }
-      if(tp){
-        var mitp=numToIdx[tp.ms[0].n];
-        if(mitp!==undefined&&loser){
-          if(GM[mitp].h===perdTxt)GM[mitp].h=loser;
-          if(GM[mitp].a===perdTxt)GM[mitp].a=loser;
-        }
-      }
-    });
-  }
 
   save();
   toast('Bracket actualizado ('+updated+' resultado'+(updated!==1?'s':'')+')');
   var active=document.querySelector('.panel.on');
   if(active){var tab=active.id.replace('p-','');RENDERS[tab]&&RENDERS[tab]();}
 }
+
+
 
 // INIT
 rInfo();
