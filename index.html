@@ -1395,6 +1395,8 @@ function buildMatchCard(m,mi){
     var ethVal=r.eth!==undefined?r.eth:'';
     var etaVal=r.eta!==undefined?r.eta:'';
     var winVal=r.winner||'';
+    var penhVal=r.penh!==undefined?r.penh:'';
+    var penaVal=r.pena!==undefined?r.pena:'';
     var showKo=isKOm&&r.h!==undefined&&r.a!==undefined&&(+r.h)===(+r.a);
     var showPen=showKo&&r.eth!==undefined&&r.eta!==undefined&&(+r.eth)===(+r.eta);
 
@@ -1414,12 +1416,13 @@ function buildMatchCard(m,mi){
         +'<input class="sc-inp" type="number" min="0" max="20" placeholder="-" style="width:40px;text-align:center" value="'+etaVal+'" data-mi="'+mi+'" data-side="eta" oninput="onReal(this);onAdminEtChange('+mi+')">'
         +'</div>'
         +'<div id="admin-pen-'+mi+'" style="display:'+(showPen?'block':'none')+'">'
-        +'<div style="font-size:9px;font-weight:700;color:#C9A843;margin-bottom:4px">GANADOR PENALES</div>'
-        +'<select data-mi="'+mi+'" data-side="winner" onchange="onReal(this)" style="width:100%;padding:4px;border-radius:5px;border:1px solid #ddd;background:#f9f9f9;font-size:11px">'
-        +'<option value="">Sin penales</option>'
-        +'<option value="'+m.h+'"'+(winVal===m.h?' selected':'')+'>'+m.h+'</option>'
-        +'<option value="'+m.a+'"'+(winVal===m.a?' selected':'')+'>'+m.a+'</option>'
-        +'</select></div></div>';
+        +'<div style="font-size:9px;font-weight:700;color:#C9A843;margin-bottom:4px">PENALES (marcador)</div>'
+        +'<div style="display:flex;align-items:center;gap:4px">'
+        +'<input class="sc-inp" type="number" min="0" max="20" placeholder="-" style="width:40px;text-align:center" value="'+penhVal+'" data-mi="'+mi+'" data-side="penh" oninput="onReal(this);onAdminPenChange('+mi+')">'
+        +'<span class="sc-sep">:</span>'
+        +'<input class="sc-inp" type="number" min="0" max="20" placeholder="-" style="width:40px;text-align:center" value="'+penaVal+'" data-mi="'+mi+'" data-side="pena" oninput="onReal(this);onAdminPenChange('+mi+')">'
+        +'<span id="pen-winner-'+mi+'" style="font-size:10px;color:var(--gold);font-weight:700;margin-left:6px">'+(winVal?'Gana '+winVal:'')+'</span>'
+        +'</div></div></div>';
     }
   } else {
     scoreDisplay='<div style="display:flex;gap:6px;align-items:center">'
@@ -1505,6 +1508,28 @@ function onAdminEtChange(mi){
     var winInp=document.querySelector('[data-mi="'+mi+'"][data-side="winner"]');
     if(winInp){winInp.value='';onReal(winInp);}
   }
+}
+
+
+function onAdminPenChange(mi){
+  var penhInp=document.querySelector('[data-mi="'+mi+'"][data-side="penh"]');
+  var penaInp=document.querySelector('[data-mi="'+mi+'"][data-side="pena"]');
+  if(!penhInp||!penaInp)return;
+  var hVal=parseInt(penhInp.value), aVal=parseInt(penaInp.value);
+  var m=GM[mi];
+  var winLabel=document.getElementById('pen-winner-'+mi);
+  if(isNaN(hVal)||isNaN(aVal)||hVal===aVal){
+    if(winLabel)winLabel.textContent='';
+    if(!S.real[String(mi)])S.real[String(mi)]={};
+    delete S.real[String(mi)].winner;
+    save();
+    return;
+  }
+  var winner=hVal>aVal?m.h:m.a;
+  if(!S.real[String(mi)])S.real[String(mi)]={};
+  S.real[String(mi)].winner=winner;
+  save();
+  if(winLabel)winLabel.textContent='Gana '+winner;
 }
 
 function toggleDay(id){
